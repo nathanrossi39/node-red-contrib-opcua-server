@@ -223,6 +223,17 @@ module.exports = {
         maxHistoryContinuationPoints: module.exports.toPositiveIntOrUndefined(
           node.maxHistoryContinuationPoints
         ),
+        // Newer node-opcua versions dropped compatibility support for the
+        // top-level maxAllowedSubscriptionNumber option (unlike
+        // maxAllowedSessionNumber, which still has a deprecation shim -
+        // see the top-level maxAllowedSessionNumber option below). Without
+        // this, node-opcua silently falls back to its own hardcoded
+        // default of 10 subscriptions per session, regardless of what's
+        // configured on the node - which can break real OPC UA clients
+        // that legitimately open more than 10 subscriptions.
+        maxSubscriptionsPerSession: module.exports.toPositiveIntOrUndefined(
+          node.maxAllowedSubscriptionNumber
+        ),
         operationLimits: {
           maxNodesPerRead: module.exports.toPositiveIntOrUndefined(
             node.maxNodesPerRead
@@ -247,6 +258,8 @@ module.exports = {
         discoveryUrls: [],
       },
       alternateHostname: node.alternateHostname,
+      // still supported directly by node-opcua (with a deprecation
+      // warning - it auto-maps to serverCapabilities.maxSessions)
       maxAllowedSessionNumber: module.exports.toPositiveIntOrUndefined(
         node.maxAllowedSessionNumber
       ),

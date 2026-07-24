@@ -165,4 +165,62 @@ describe("core.server unit testing", function () {
       expect(callCount).toBeGreaterThanOrEqual(2);
     });
   });
+
+  describe("defaultServerOptions", function () {
+    function makeNode(overrides) {
+      return Object.assign(
+        {
+          port: 4840,
+          endpoint: "",
+          productUri: "",
+          maxAllowedSessionNumber: 25,
+          maxConnectionsPerEndpoint: 25,
+          maxAllowedSubscriptionNumber: 50,
+          maxNodesPerRead: 1000,
+          maxNodesPerWrite: 1000,
+          maxNodesPerHistoryReadData: 100,
+          maxNodesPerBrowse: 3000,
+          maxBrowseContinuationPoints: 10,
+          maxHistoryContinuationPoints: 10,
+          publicCertificateFile: "",
+          privateCertificateFile: "",
+          allowAnonymous: true,
+          isAuditing: false,
+          disableDiscovery: true,
+        },
+        overrides
+      );
+    }
+
+    it("should map maxAllowedSubscriptionNumber to serverCapabilities.maxSubscriptionsPerSession", function () {
+      // Newer node-opcua versions dropped the compatibility shim for the
+      // top-level maxAllowedSubscriptionNumber option (unlike
+      // maxAllowedSessionNumber, which still auto-maps with a deprecation
+      // warning). Without this explicit mapping, node-opcua silently
+      // falls back to its own hardcoded default of 10 subscriptions per
+      // session regardless of what's configured - which breaks real OPC
+      // UA clients that legitimately open more than 10 subscriptions.
+      const node = makeNode({ maxAllowedSubscriptionNumber: 200 });
+      const options = coreServer.defaultServerOptions(node);
+      expect(options.serverCapabilities.maxSubscriptionsPerSession).toBe(200);
+    });
+
+    it("should still set the top-level maxAllowedSessionNumber and maxConnectionsPerEndpoint options", function () {
+      const node = makeNode({
+        maxAllowedSessionNumber: 30,
+        maxConnectionsPerEndpoint: 40,
+      });
+      const options = coreServer.defaultServerOptions(node);
+      expect(options.maxAllowedSessionNumber).toBe(30);
+      expect(options.maxConnectionsPerEndpoint).toBe(40);
+    });
+
+    it("should leave maxSubscriptionsPerSession undefined (node-opcua's own default applies) when unset", function () {
+      const node = makeNode({ maxAllowedSubscriptionNumber: "" });
+      const options = coreServer.defaultServerOptions(node);
+      expect(options.serverCapabilities.maxSubscriptionsPerSession).toBe(
+        undefined
+      );
+    });
+  });
 });
