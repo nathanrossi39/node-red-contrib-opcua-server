@@ -174,6 +174,20 @@ module.exports = {
 
     return xmlFiles;
   },
+  // Coerces a config value that should be a positive integer (session/
+  // connection/node limits etc.) into either a valid positive integer or
+  // undefined. Node-RED editor fields left blank come through as "", and
+  // passing that straight to node-opcua used to be silently tolerated by
+  // older versions but throws an uncaught internal error in newer ones.
+  // Returning undefined instead lets node-opcua fall back to its own
+  // built-in default for that option, rather than us inventing a number.
+  toPositiveIntOrUndefined: (value) => {
+    if (value === undefined || value === null || value === "") {
+      return undefined;
+    }
+    const parsed = typeof value === "string" ? parseInt(value, 10) : value;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  },
   defaultServerOptions: (node) => {
     /* const applicationUri = module.exports.choreCompact.opcua.makeApplicationUrn(
       module.exports.choreCompact.opcua.get_fully_qualified_domain_name(),
@@ -203,13 +217,25 @@ module.exports = {
         buildDate: new Date(2022, 7, 31),
       },
       serverCapabilities: {
-        maxBrowseContinuationPoints: node.maxBrowseContinuationPoints,
-        maxHistoryContinuationPoints: node.maxHistoryContinuationPoints,
+        maxBrowseContinuationPoints: module.exports.toPositiveIntOrUndefined(
+          node.maxBrowseContinuationPoints
+        ),
+        maxHistoryContinuationPoints: module.exports.toPositiveIntOrUndefined(
+          node.maxHistoryContinuationPoints
+        ),
         operationLimits: {
-          maxNodesPerRead: node.maxNodesPerRead,
-          maxNodesPerWrite: node.maxNodesPerWrite,
-          maxNodesPerHistoryReadData: node.maxNodesPerHistoryReadData,
-          maxNodesPerBrowse: node.maxNodesPerBrowse,
+          maxNodesPerRead: module.exports.toPositiveIntOrUndefined(
+            node.maxNodesPerRead
+          ),
+          maxNodesPerWrite: module.exports.toPositiveIntOrUndefined(
+            node.maxNodesPerWrite
+          ),
+          maxNodesPerHistoryReadData: module.exports.toPositiveIntOrUndefined(
+            node.maxNodesPerHistoryReadData
+          ),
+          maxNodesPerBrowse: module.exports.toPositiveIntOrUndefined(
+            node.maxNodesPerBrowse
+          ),
         },
       },
       serverInfo: {
@@ -221,8 +247,12 @@ module.exports = {
         discoveryUrls: [],
       },
       alternateHostname: node.alternateHostname,
-      maxAllowedSessionNumber: node.maxAllowedSessionNumber,
-      maxConnectionsPerEndpoint: node.maxConnectionsPerEndpoint,
+      maxAllowedSessionNumber: module.exports.toPositiveIntOrUndefined(
+        node.maxAllowedSessionNumber
+      ),
+      maxConnectionsPerEndpoint: module.exports.toPositiveIntOrUndefined(
+        node.maxConnectionsPerEndpoint
+      ),
       allowAnonymous: node.allowAnonymous,
       /* securityPolicies: [ TODO: configure SecurityPolicies
         SecurityPolicy.Basic128Rsa15,
@@ -257,6 +287,53 @@ module.exports = {
       }
     });
   },
+  // Works around an apparent internal node-opcua timing issue: when a
+  // second OPCUAServer instance is created within the same process (e.g.
+  // on a Node-RED flow redeploy), opcuaServer.initialize()'s callback can
+  // fire before the standard nodeset's base types are fully registered
+  // in the new address space, even though addressSpace itself already
+  // exists. Calling addObject()/addVariable() at that point fails with
+  // "Cannot find topMostBaseTypeNode BaseObjectType" rather than a
+  // catchable "not ready yet" signal. This polls for a well-known
+  // standard type (BaseObjectType, ns=0;i=58) to actually resolve before
+  // letting the user's address-space script run, instead of trusting
+  // initialize()'s callback timing blindly.
+  waitForStandardTypesReady: (
+    addressSpace,
+    timeoutMs = 5000,
+    intervalMs = 25
+  ) => {
+    return new Promise((resolve, reject) => {
+      if (!addressSpace) {
+        reject(new Error("addressSpace is not available"));
+        return;
+      }
+      const deadline = Date.now() + timeoutMs;
+      const check = () => {
+        let baseObjectType;
+        try {
+          baseObjectType = addressSpace.findNode("ns=0;i=58"); // BaseObjectType
+        } catch (err) {
+          baseObjectType = undefined;
+        }
+        if (baseObjectType) {
+          resolve();
+          return;
+        }
+        if (Date.now() >= deadline) {
+          reject(
+            new Error(
+              "Timed out waiting for the standard OPC UA type registry " +
+                "(BaseObjectType) to become available in the address space"
+            )
+          );
+          return;
+        }
+        setTimeout(check, intervalMs);
+      };
+      check();
+    });
+  },
   postInitialize: (node, opcuaServer) => {
     node.contribOPCUACompact.eventObjects = {}; // event objects should stay in memory
 
@@ -266,10 +343,13 @@ module.exports = {
     }
 
     module.exports
-      .constructAddressSpaceFromScript(
-        opcuaServer,
-        node.contribOPCUACompact.constructAddressSpaceScript,
-        node.contribOPCUACompact.eventObjects
+      .waitForStandardTypesReady(addressSpace)
+      .then(() =>
+        module.exports.constructAddressSpaceFromScript(
+          opcuaServer,
+          node.contribOPCUACompact.constructAddressSpaceScript,
+          node.contribOPCUACompact.eventObjects
+        )
       )
       .then(() => {
         module.exports.choreCompact.setStatusActive(node);

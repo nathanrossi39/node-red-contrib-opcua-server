@@ -76,7 +76,14 @@ module.exports = {
   // ],
 
   // A map from regular expressions to module names that allow to stub out resources with a single module
-  // moduleNameMapper: {},
+  moduleNameMapper: {
+    // 'hexy' is ESM-only and pulled in transitively via node-opcua-debug's
+    // hexDump helper, which we never call. Jest's default config doesn't
+    // transform anything under node_modules, so requiring it directly
+    // fails to parse under Jest even though it works fine at real
+    // runtime. See test/mocks/hexy.js for details.
+    '^hexy$': '<rootDir>/test/mocks/hexy.js'
+  },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],

@@ -25,12 +25,12 @@
   "dependencies": {
     "better-assert": "~1.0.2",
     "debug": "~4.3.4",
-    "node-opcua": "~2.64.1",
+    "node-opcua": "~2.175.2",
     "source-map-support": "~0.5.21"
   },
   "scripts": {
     "build": "npm run clean:formatter && gulp publish",
-    "postinstall": "node ./create_certificates.js demo --dev -s -r ./certificates",
+    "postinstall": "node ./create_certificates.js demo --dev --silent -r ./certificates",
     "test": "npm run check:formatter && jest --detectOpenHandles --forceExit --logHeapUsage",
     "test:clearCache": "jest --clearCache",
     "test:coverage": "jest --coverage",

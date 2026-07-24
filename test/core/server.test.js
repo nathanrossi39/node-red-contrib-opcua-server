@@ -107,4 +107,62 @@ describe("core.server unit testing", function () {
       expect(node.warn).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("waitForStandardTypesReady", function () {
+    it("should resolve immediately if BaseObjectType is already available", async function () {
+      const addressSpace = {
+        findNode: jest.fn().mockReturnValue({ nodeId: "ns=0;i=58" }),
+      };
+      await expect(
+        coreServer.waitForStandardTypesReady(addressSpace, 1000, 10)
+      ).resolves.toBeUndefined();
+      expect(addressSpace.findNode).toHaveBeenCalledWith("ns=0;i=58");
+    });
+
+    it("should poll until BaseObjectType becomes available", async function () {
+      let callCount = 0;
+      const addressSpace = {
+        findNode: jest.fn().mockImplementation(() => {
+          callCount += 1;
+          return callCount >= 3 ? { nodeId: "ns=0;i=58" } : undefined;
+        }),
+      };
+      await expect(
+        coreServer.waitForStandardTypesReady(addressSpace, 1000, 5)
+      ).resolves.toBeUndefined();
+      expect(callCount).toBeGreaterThanOrEqual(3);
+    });
+
+    it("should reject with a clear error if it times out waiting", async function () {
+      const addressSpace = {
+        findNode: jest.fn().mockReturnValue(undefined),
+      };
+      await expect(
+        coreServer.waitForStandardTypesReady(addressSpace, 50, 10)
+      ).rejects.toThrow(/Timed out waiting/);
+    });
+
+    it("should reject immediately if addressSpace itself is missing", async function () {
+      await expect(
+        coreServer.waitForStandardTypesReady(undefined, 1000, 10)
+      ).rejects.toThrow(/addressSpace is not available/);
+    });
+
+    it("should treat a findNode exception the same as not-yet-ready and keep polling", async function () {
+      let callCount = 0;
+      const addressSpace = {
+        findNode: jest.fn().mockImplementation(() => {
+          callCount += 1;
+          if (callCount < 2) {
+            throw new Error("not ready internally");
+          }
+          return { nodeId: "ns=0;i=58" };
+        }),
+      };
+      await expect(
+        coreServer.waitForStandardTypesReady(addressSpace, 1000, 5)
+      ).resolves.toBeUndefined();
+      expect(callCount).toBeGreaterThanOrEqual(2);
+    });
+  });
 });

@@ -34,17 +34,45 @@ module.exports = function (RED) {
       node.contribOPCUACompact = {};
       node.contribOPCUACompact.initialized = false;
 
-      // function placeholder to fill it later from vm2 script
+      // function placeholder in case something goes wrong installing the
+      // real script below - still calls done() so a failure here reports
+      // an error instead of hanging forever.
       /* istanbul ignore next */
       node.contribOPCUACompact.constructAddressSpaceScript = (
         server,
-        constructAddressSpaceScript,
-        eventObjects
+        addressSpace,
+        eventObjects,
+        done
       ) => {
         coreServerSandbox.debugLog("Init Function Block Compact Server"); // placeholder function for sandbox compile
+        done();
       };
 
       opcuaServer = coreServer.initialize(node, opcuaServerOptions);
+
+      // Sandbox initialization must complete - and install the real
+      // address-space script - BEFORE opcuaServer.initialize() is called,
+      // since its callback (postInitialize) invokes
+      // node.contribOPCUACompact.constructAddressSpaceScript immediately.
+      // Previously these ran as two independent, unsynchronized async
+      // chains that both touched that same property; if
+      // opcuaServer.initialize's callback fired before the sandbox chain
+      // replaced the placeholder, postInitialize would call a function
+      // that never invokes done(), hanging the server forever with no
+      // error reported. Sandbox setup is synchronous internally (see
+      // core/server-sandbox.js), so doing it first here removes the race
+      // entirely rather than relying on incidental timing between the two
+      // chains.
+      coreServerSandbox.initialize(node, coreServer, (node, vm) => {
+        node.contribOPCUACompact.vm = vm;
+        vm.run(
+          "node.contribOPCUACompact.constructAddressSpaceScript = " +
+            nodeConfig.addressSpaceScript
+        );
+        node.contribOPCUACompact.initialized = true;
+        node.emit("server_node_running");
+      });
+
       opcuaServer.initialize(() => {
         coreServer.postInitialize(node, opcuaServer);
       });
@@ -52,15 +80,6 @@ module.exports = function (RED) {
       coreServer
         .run(node, opcuaServer)
         .then(() => {
-          coreServerSandbox.initialize(node, coreServer, (node, vm) => {
-            node.contribOPCUACompact.vm = vm;
-            vm.run(
-              "node.contribOPCUACompact.constructAddressSpaceScript = " +
-                nodeConfig.addressSpaceScript
-            );
-            node.contribOPCUACompact.initialized = true;
-            node.emit("server_node_running");
-          });
           coreServer.choreCompact.setStatusActive(node);
         })
         .catch((err) => {

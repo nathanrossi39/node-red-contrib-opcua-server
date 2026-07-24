@@ -20,6 +20,13 @@
 // unaffected by the exports map - that only governs module resolution,
 // not process execution - so this is robust regardless of whether a
 // future node-opcua-pki version tightens its exports further.
+//
+// node-opcua-pki v6.x also restructured its CLI: the old dedicated
+// bin/crypto_create_CA.js demo-certificate generator was replaced with a
+// single unified bin/pki.mjs (ESM) CLI that takes an explicit 'demo'
+// subcommand - which is why this script is invoked as
+// `create_certificates.js demo --dev --silent -r ./certificates` rather
+// than the old `create_certificates.js --dev -s -r ./certificates`.
 const path = require("path");
 const fs = require("fs");
 const { spawnSync } = require("child_process");
@@ -45,15 +52,15 @@ function findPackageRoot(startDir) {
 
 const pkiMainEntry = require.resolve("node-opcua-pki");
 const pkiPackageRoot = findPackageRoot(path.dirname(pkiMainEntry));
-const binScript = path.join(
-  pkiPackageRoot,
-  "bin",
-  "crypto_create_CA.js"
-);
+const binScript = path.join(pkiPackageRoot, "dist", "bin", "pki.mjs");
 
-const result = spawnSync(process.execPath, [binScript, ...process.argv.slice(2)], {
-  stdio: "inherit",
-});
+const result = spawnSync(
+  process.execPath,
+  [binScript, ...process.argv.slice(2)],
+  {
+    stdio: "inherit",
+  }
+);
 
 if (result.error) {
   throw result.error;
