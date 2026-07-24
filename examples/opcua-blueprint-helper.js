@@ -1,0 +1,299 @@
+/**
+ * opcua-blueprint-helper.js
+ *
+ * Shared backend logic for building an OPC UA address space from a
+ * "blueprint" dictionary published to Node-RED flow/global context.
+ *
+ * WHY THIS EXISTS
+ * ----------------
+ * Each opcua-compact-server node's "Address Space Script" runs inside a
+ * small sandboxed vm context and is edited as a plain-text field in the
+ * Node-RED editor - easy to break by accident, hard to version control,
+ * and (if the exact same logic is duplicated across several nodes) easy
+ * for the copies to drift apart over time.
+ *
+ * This file moves that logic into a real, version-controlled, testable
+ * JavaScript file instead. Load it once via functionGlobalContext (see
+ * setup below), and every server node's own script shrinks down to a
+ * couple of lines that just call into this shared function. Adding,
+ * removing, or changing tags only ever means editing the blueprint data
+ * itself (wherever you build OpcBlueprint/OpcData) - never touching any
+ * node's script field again.
+ *
+ * SETUP
+ * -----
+ * 1. Save this file somewhere in your Node-RED user directory, e.g.
+ *      ~/.node-red/lib/opcua-blueprint-helper.js
+ *
+ * 2. In your Node-RED settings.js, add it to functionGlobalContext:
+ *
+ *      functionGlobalContext: {
+ *          opcuaBlueprintHelper: require('/home/pi/.node-red/lib/opcua-blueprint-helper.js')
+ *      }
+ *
+ *    (Use an absolute path - settings.js does not resolve relative to
+ *    your flow files.)
+ *
+ * 3. Restart Node-RED so settings.js is re-read.
+ *
+ * 4. In each opcua-compact-server node's "Address Space Script" field,
+ *    replace the whole script with the few-line bootstrap in
+ *    opcua-blueprint-node-script.js (in this same examples/ folder).
+ *
+ * WHAT CHANGED VS THE ORIGINAL INLINE SCRIPT
+ * -------------------------------------------
+ * - Cleanup now attaches to the real `node` object's "close" event
+ *   instead of `this.on(...)`. In the original script, `this` inside
+ *   the address-space script function is the sandbox's own global
+ *   object, which never had an `.on` method - so
+ *   `typeof flexServerInternals.on === "function"` was always false,
+ *   and the cleanup block silently never ran. That meant the periodic
+ *   data-refresh and status-update intervals were never cleared on
+ *   node close/redeploy - a slow interval leak on every redeploy. This
+ *   version uses the real Node-RED `node` object (an EventEmitter),
+ *   which does have `.on()`, so cleanup actually runs now.
+ * - All the previously-hardcoded values (context key names, folder
+ *   names, refresh intervals, retry settings) are now function
+ *   parameters with the same defaults as before, so behavior is
+ *   unchanged out of the box but is now overridable per node without
+ *   touching this file.
+ */
+
+"use strict";
+
+/**
+ * Build an OPC UA address space from a blueprint dictionary.
+ *
+ * @param {object} server - the OPCUAServer instance (script arg 1)
+ * @param {object} addressSpace - the server's address space (script arg 2)
+ * @param {object} eventObjects - shared event objects (script arg 3, unused here but passed through)
+ * @param {function} done - call this when construction is complete (script arg 4)
+ * @param {object} node - the real Node-RED node object (has .send, .warn, .error, .status, .on, .context())
+ * @param {object} sandboxFlowContext - the node's sandboxed flow context accessor (has .get/.set)
+ * @param {object} [options]
+ * @param {string} [options.blueprintContextKey="OpcBlueprint"] - flow context key holding the tag dictionary
+ * @param {string} [options.blueprintContextStore="memoryOnly"] - flow context store name for the blueprint
+ * @param {string} [options.dataContextKey="OpcData"] - flow context key holding live tag values
+ * @param {string} [options.dataContextStore="memoryOnly"] - flow context store name for live data
+ * @param {string} [options.namespaceUri="http://node-red/ua-server"] - OPC UA namespace URI
+ * @param {string} [options.rootFolderName="Simulation Examples"] - top-level folder name
+ * @param {string} [options.functionsFolderName="Functions"] - sub-folder name under the root folder
+ * @param {number} [options.dataRefreshIntervalMs=200] - how often to re-read live data from context
+ * @param {number} [options.statusUpdateIntervalMs=3000] - how often to refresh the node's status text
+ * @param {number} [options.maxRetries=30] - how many times to poll for the blueprint before giving up
+ * @param {number} [options.retryDelayMs=1000] - delay between blueprint polling attempts
+ */
+function buildBlueprintAddressSpace(
+  server,
+  addressSpace,
+  eventObjects,
+  done,
+  node,
+  sandboxFlowContext,
+  options
+) {
+  const opts = Object.assign(
+    {
+      blueprintContextKey: "OpcBlueprint",
+      blueprintContextStore: "memoryOnly",
+      dataContextKey: "OpcData",
+      dataContextStore: "memoryOnly",
+      namespaceUri: "http://node-red/ua-server",
+      rootFolderName: "Simulation Examples",
+      functionsFolderName: "Functions",
+      dataRefreshIntervalMs: 200,
+      statusUpdateIntervalMs: 3000,
+      maxRetries: 30,
+      retryDelayMs: 1000,
+    },
+    options
+  );
+
+  // node-opcua is already loaded by the server itself; requiring it
+  // here just gets a reference to the same already-loaded module (no
+  // extra dependency, no version mismatch risk).
+  const opcua = require("node-opcua");
+  const Variant = opcua.Variant;
+  const DataType = opcua.DataType;
+
+  const validTypes = {
+    Double: DataType.Double,
+    Boolean: DataType.Boolean,
+    Int16: DataType.Int16,
+    Int32: DataType.Int32,
+    String: DataType.String,
+  };
+
+  node.status({
+    fill: "yellow",
+    shape: "ring",
+    text: "Waiting for Master Dictionary...",
+  });
+
+  let retryCount = 0;
+
+  function waitForBlueprint() {
+    const blueprint = sandboxFlowContext.get(
+      opts.blueprintContextKey,
+      opts.blueprintContextStore
+    );
+
+    if (blueprint && Object.keys(blueprint).length > 0) {
+      buildAddressSpace(blueprint);
+      return;
+    }
+
+    retryCount++;
+
+    if (retryCount > opts.maxRetries) {
+      node.error(
+        "CRITICAL: " + opts.blueprintContextKey + " never arrived!"
+      );
+      node.status({
+        fill: "red",
+        shape: "ring",
+        text: "No blueprint received",
+      });
+      done();
+      return;
+    }
+
+    node.status({
+      fill: "yellow",
+      shape: "ring",
+      text: "Waiting... (" + retryCount + "s)",
+    });
+    setTimeout(waitForBlueprint, opts.retryDelayMs);
+  }
+
+  waitForBlueprint();
+
+  function buildAddressSpace(blueprint) {
+    try {
+      const namespace = addressSpace.registerNamespace(opts.namespaceUri);
+      const rootFolder = addressSpace.findNode("RootFolder");
+      const simFolder = namespace.addFolder(rootFolder.objects, {
+        browseName: opts.rootFolderName,
+      });
+      const funcFolder = namespace.addFolder(simFolder, {
+        browseName: opts.functionsFolderName,
+      });
+
+      const folderNames = Object.keys(blueprint);
+      const totalFolders = folderNames.length;
+
+      // Cached live data, refreshed periodically rather than read from
+      // context on every single OPC UA read - keeps reads fast under
+      // load from many simultaneous client subscriptions.
+      let cachedData = {};
+      const dataRefreshHandle = setInterval(() => {
+        cachedData =
+          sandboxFlowContext.get(
+            opts.dataContextKey,
+            opts.dataContextStore
+          ) || {};
+      }, opts.dataRefreshIntervalMs);
+
+      const statusHandle = setInterval(() => {
+        if (server && server.engine) {
+          const count = server.engine.currentSessionCount;
+          node.status({
+            fill: count > 0 ? "green" : "blue",
+            shape: "dot",
+            text: "Sessions: " + count + " | Folders: " + totalFolders,
+          });
+        }
+      }, opts.statusUpdateIntervalMs);
+
+      // Use the real Node-RED node object for cleanup - it's a genuine
+      // EventEmitter with .on(), unlike the sandbox's own global object
+      // (see the file header comment for why the original version of
+      // this cleanup silently never ran).
+      node.on("close", () => {
+        clearInterval(statusHandle);
+        clearInterval(dataRefreshHandle);
+      });
+
+      for (let i = 0; i < totalFolders; i++) {
+        const folderName = folderNames[i];
+        const tagsInFolder = blueprint[folderName];
+        const currentFolder = namespace.addFolder(funcFolder, {
+          browseName: folderName,
+        });
+
+        const tagNames = Object.keys(tagsInFolder);
+
+        for (let j = 0; j < tagNames.length; j++) {
+          const shortTagName = tagNames[j];
+          const fullPath =
+            opts.rootFolderName +
+            "." +
+            opts.functionsFolderName +
+            "." +
+            folderName +
+            "." +
+            shortTagName;
+
+          const rawType = tagsInFolder[shortTagName];
+          const opcDataType = validTypes[rawType] || DataType.Double;
+
+          namespace.addVariable({
+            organizedBy: currentFolder,
+            browseName: shortTagName,
+            nodeId: "s=" + fullPath,
+            dataType: opcDataType,
+            minimumSamplingInterval: opts.dataRefreshIntervalMs,
+            value: {
+              get: function () {
+                const val =
+                  cachedData[folderName + "." + shortTagName] ?? 0;
+
+                switch (opcDataType) {
+                  case DataType.Boolean:
+                    return new Variant({
+                      dataType: DataType.Boolean,
+                      value: !!val,
+                    });
+                  case DataType.Int16:
+                  case DataType.Int32:
+                    return new Variant({
+                      dataType: opcDataType,
+                      value: Math.round(val),
+                    });
+                  case DataType.String:
+                    return new Variant({
+                      dataType: DataType.String,
+                      value: String(val),
+                    });
+                  default:
+                    return new Variant({
+                      dataType: DataType.Double,
+                      value: Number(val) || 0,
+                    });
+                }
+              },
+              set: function (variant) {
+                node.send({
+                  topic: "WriteRequest",
+                  tagName: folderName + "." + shortTagName,
+                  payload: variant.value,
+                });
+                return opcua.StatusCodes.Good;
+              },
+            },
+          });
+        }
+      }
+
+      node.warn("OPC UA Server LIVE: " + totalFolders + " folders loaded.");
+      done();
+    } catch (e) {
+      node.error("Address space error: " + e.message);
+      done();
+    }
+  }
+}
+
+module.exports = {
+  buildBlueprintAddressSpace: buildBlueprintAddressSpace,
+};
