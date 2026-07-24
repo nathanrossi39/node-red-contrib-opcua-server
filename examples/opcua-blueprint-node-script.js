@@ -15,8 +15,22 @@ function constructAddressSpaceScript(server, addressSpace, eventObjects, done) {
       eventObjects,
       done,
       node,
-      sandboxFlowContext
-      // Optional 7th argument to override any default, e.g.:
-      // { dataRefreshIntervalMs: 500, maxRetries: 60 }
+      sandboxFlowContext,
+      coreServer.choreCompact.opcua,
+      {
+        // Namespace URI is intentionally left as the shared default here -
+        // do NOT make this unique per node, since existing MES tag
+        // configuration references tag paths by this URI across all
+        // server nodes. Instead, startupStaggerMs below fixes the
+        // underlying node-opcua collision without changing tag paths.
+        //
+        // Derives a distinct, repeatable stagger per node from its own
+        // port (already unique per node) - e.g. port 62541 -> 410ms,
+        // 62542 -> 420ms, etc. Spreads out each node's registerNamespace
+        // call by roughly a third of a second from its neighbors, which
+        // has been enough to avoid the collision without adding
+        // meaningful startup delay.
+        startupStaggerMs: (node.port % 100) * 10,
+      }
     );
 }

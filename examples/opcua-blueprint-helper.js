@@ -70,7 +70,24 @@
  * @param {function} done - call this when construction is complete (script arg 4)
  * @param {object} node - the real Node-RED node object (has .send, .warn, .error, .status, .on, .context())
  * @param {object} sandboxFlowContext - the node's sandboxed flow context accessor (has .get/.set)
+ * @param {object} opcua - the already-loaded node-opcua module (pass coreServer.choreCompact.opcua
+ *   from the sandbox - do NOT pass require('node-opcua') directly here, since this helper file lives
+ *   outside the package's own node_modules tree (e.g. ~/.node-red/lib/) and a plain require('node-opcua')
+ *   from that location won't resolve to the package's nested copy)
  * @param {object} [options]
+ * @param {string} [options.namespaceUri="http://node-red/ua-server"] - OPC UA namespace URI. Keep
+ *   this IDENTICAL across all server nodes unless you have a specific reason to change it - most
+ *   OPC UA clients (including tag configurations already set up against this server) reference tag
+ *   paths by this URI, so changing it per node breaks existing client tag configuration even though
+ *   the server itself still works fine.
+ * @param {number} [options.startupStaggerMs] - delay, in milliseconds, before this node begins
+ *   building its address space. When several server nodes initialize at nearly the same moment
+ *   (e.g. at Node-RED startup), calling addressSpace.registerNamespace() with the same URI at
+ *   virtually the same instant across multiple OPCUAServer instances in the same process appears to
+ *   trigger an internal node-opcua collision, where some nodes hang instead of completing. A small
+ *   distinct-per-node delay avoids the collision without needing a different URI per node. Defaults
+ *   to a value derived from node.port (see the bootstrap script) so every node gets a different
+ *   stagger automatically with no manual configuration required.
  * @param {string} [options.blueprintContextKey="OpcBlueprint"] - flow context key holding the tag dictionary
  * @param {string} [options.blueprintContextStore="memoryOnly"] - flow context store name for the blueprint
  * @param {string} [options.dataContextKey="OpcData"] - flow context key holding live tag values
@@ -90,6 +107,7 @@ function buildBlueprintAddressSpace(
   done,
   node,
   sandboxFlowContext,
+  opcua,
   options
 ) {
   const opts = Object.assign(
@@ -105,14 +123,11 @@ function buildBlueprintAddressSpace(
       statusUpdateIntervalMs: 3000,
       maxRetries: 30,
       retryDelayMs: 1000,
+      startupStaggerMs: 0,
     },
     options
   );
 
-  // node-opcua is already loaded by the server itself; requiring it
-  // here just gets a reference to the same already-loaded module (no
-  // extra dependency, no version mismatch risk).
-  const opcua = require("node-opcua");
   const Variant = opcua.Variant;
   const DataType = opcua.DataType;
 
@@ -139,7 +154,11 @@ function buildBlueprintAddressSpace(
     );
 
     if (blueprint && Object.keys(blueprint).length > 0) {
-      buildAddressSpace(blueprint);
+      // Stagger specifically here, right before the actual node-opcua
+      // collision point (registerNamespace inside buildAddressSpace),
+      // rather than delaying the whole blueprint-wait loop above - keeps
+      // the stagger minimal and only where it's actually needed.
+      setTimeout(() => buildAddressSpace(blueprint), opts.startupStaggerMs);
       return;
     }
 
