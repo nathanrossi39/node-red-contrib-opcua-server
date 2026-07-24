@@ -16,6 +16,17 @@ describe("core.server unit testing", function () {
     done();
   });
 
+  it("should carry namespaceUri from config through to node.namespaceUri", function (done) {
+    const contrib = coreServer;
+    const EventEmitter = require("events");
+    const node = new EventEmitter();
+    contrib.readConfigOfServerNode(node, {
+      namespaceUri: "http://example.com/custom-namespace",
+    });
+    expect(node.namespaceUri).toBe("http://example.com/custom-namespace");
+    done();
+  });
+
   it("should initialize debugLog", function (done) {
     const contrib = coreServer;
     expect(contrib.initialize()).toBeDefined();

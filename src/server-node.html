@@ -164,6 +164,9 @@
       },
       addressSpaceHelperModule: {
         value: ""
+      },
+      namespaceUri: {
+        value: ""
       }
     },
     inputs: 0,
@@ -769,6 +772,13 @@
           </div>
       </div>
       <div id="compact-server-tab-ass" style="display:none">
+          <div class="form-row">
+              <label for="node-input-namespaceUri" style="width:50%;"><i class="fa fa-sitemap"></i> <span data-i18n="opcua-compact-contrib.label.namespaceUri"></span></label>
+              <input type="text" id="node-input-namespaceUri" placeholder="http://node-red/ua-server" style="width:50%;">
+          </div>
+          <div class="form-tips" style="margin-bottom: 8px;">
+              <span data-i18n="opcua-compact-contrib.label.namespaceUriTip"></span>
+          </div>
           <div class="form-row">
               <label for="node-input-addressSpaceHelperModule" style="width:50%;"><i class="fa fa-file-code-o"></i> <span data-i18n="opcua-compact-contrib.label.addressSpaceHelperModule"></span></label>
               <input type="text" id="node-input-addressSpaceHelperModule" placeholder="/home/pi/.node-red/lib/my-helper.js" style="width:50%;">

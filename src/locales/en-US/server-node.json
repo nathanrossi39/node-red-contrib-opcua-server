@@ -31,6 +31,8 @@
       "allowAnonymous": "Allow Anonymous",
       "isAuditing": "Auditing",
       "function": "Address Space Script",
+      "namespaceUri": "Namespace URI",
+      "namespaceUriTip": "Optional. The OPC UA namespace URI your address-space script registers via addressSpace.registerNamespace(...). Leave blank to use whatever URI your script hardcodes; set here to make it changeable per node without editing the script. Available in your script as node.namespaceUri.",
       "addressSpaceHelperModule": "External Helper Module",
       "addressSpaceHelperModuleTip": "Optional. Absolute path to a .js file exposing shared address-space-building logic, loaded automatically for this node (no settings.js changes needed). Available in your script as the 'addressSpaceHelper' global. Leave blank if you don't need this.",
       "publicCertificateFile": "Public",

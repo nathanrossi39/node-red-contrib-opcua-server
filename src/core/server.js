@@ -18,6 +18,7 @@ module.exports = {
     node.port = config.port;
     node.endpoint = config.endpoint;
     node.productUri = config.productUri;
+    node.namespaceUri = config.namespaceUri;
     node.alternateHostname = config.alternateHostname;
 
     // limits
