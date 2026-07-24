@@ -20,6 +20,7 @@ module.exports = function (RED) {
     coreServer.choreCompact.listenForErrors(node);
     coreServer.choreCompact.setStatusInit(node);
     coreServer.readConfigOfServerNode(node, nodeConfig);
+    coreServer.checkInsecureDefaults(node);
 
     const initOPCUATimer = setTimeout(() => {
       coreServer.detailLog("pending node " + node.id);

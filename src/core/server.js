@@ -65,6 +65,79 @@ module.exports = {
   initialize: (node, options) => {
     return new module.exports.choreCompact.opcua.OPCUAServer(options);
   },
+  // Warns at startup about configuration choices that are fine for testing
+  // but risky to leave as-is in a production deployment. This is purely
+  // informational - it does not change server behavior or block startup -
+  // so a node relying on any of these on purpose is unaffected beyond
+  // seeing the warning in the node's status/debug log.
+  checkInsecureDefaults: (node) => {
+    const warnings = [];
+
+    if (!node.publicCertificateFile || !node.privateCertificateFile) {
+      warnings.push(
+        "no publicCertificateFile/privateCertificateFile configured - " +
+          "the server is using the auto-generated demo certificate, which " +
+          "is the same one every install of this package generates by " +
+          "default. Configure your own certificate before production use."
+      );
+    }
+
+    if (node.allowAnonymous) {
+      warnings.push(
+        "allowAnonymous is enabled - anyone who can reach this endpoint " +
+          "can connect and interact with the address space without " +
+          "authenticating. Disable this and configure users before " +
+          "production use unless anonymous access is genuinely intended."
+      );
+    }
+
+    const isUnbounded = (value) =>
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      Number(value) <= 0;
+
+    if (isUnbounded(node.maxAllowedSessionNumber)) {
+      warnings.push(
+        "maxAllowedSessionNumber is not set to a positive limit - a " +
+          "single client (or many) can open unlimited sessions, which " +
+          "can exhaust server resources."
+      );
+    }
+
+    if (isUnbounded(node.maxConnectionsPerEndpoint)) {
+      warnings.push(
+        "maxConnectionsPerEndpoint is not set to a positive limit - " +
+          "connections to this endpoint are unbounded."
+      );
+    }
+
+    if (isUnbounded(node.maxAllowedSubscriptionNumber)) {
+      warnings.push(
+        "maxAllowedSubscriptionNumber is not set to a positive limit - " +
+          "subscriptions are unbounded, which can exhaust server resources " +
+          "under a misbehaving or malicious client."
+      );
+    }
+
+    if (warnings.length > 0) {
+      module.exports.debugLog(
+        "Production readiness warnings for node " +
+          node.id +
+          ":\n - " +
+          warnings.join("\n - ")
+      );
+      node.warn(
+        "This OPC UA server node is running with " +
+          warnings.length +
+          " insecure/unbounded default(s). See debug log " +
+          "(DEBUG=opcuaCompact*) for details. This is a warning only; " +
+          "the server will still start."
+      );
+    }
+
+    return warnings;
+  },
   stop: (node, server, done) => {
     server.shutdown(node.serverShutdownTimeout, done);
   },
