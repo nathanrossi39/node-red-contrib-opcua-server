@@ -87,11 +87,62 @@ describe("core.server-sandbox unit testing", function () {
         // stop the interval from firing further and re-throwing on the test process
         node.outstandingIntervals.forEach((id) => clearInterval(id));
         expect(node.error).toHaveBeenCalled();
-        expect(node.error.mock.calls[0][0].message).toBe(
-          "boom from interval"
-        );
+        expect(node.error.mock.calls[0][0].message).toBe("boom from interval");
         done();
       }, 30);
+    });
+  });
+
+  it("should provide standard globals (Math, Date, console, JSON) without explicit injection", function (done) {
+    const contrib = coreServerSandbox;
+    const EventEmitter = require("events");
+    let node = new EventEmitter();
+    contrib.initialize(node, {}, (node, vm) => {
+      const result = vm.run(
+        "typeof Math.random() + '|' + (new Date() instanceof Date) + '|' + typeof console.log + '|' + JSON.stringify({ok: true});"
+      );
+      expect(result).toBe('number|true|function|{"ok":true}');
+      done();
+    });
+  });
+
+  it("should allow require('fs') from an address space script", function (done) {
+    const contrib = coreServerSandbox;
+    const EventEmitter = require("events");
+    let node = new EventEmitter();
+    contrib.initialize(node, {}, (node, vm) => {
+      const result = vm.run("typeof require('fs').readFileSync;");
+      expect(result).toBe("function");
+      done();
+    });
+  });
+
+  it("should block require() of anything outside the allowlist", function (done) {
+    const contrib = coreServerSandbox;
+    const EventEmitter = require("events");
+    let node = new EventEmitter();
+    contrib.initialize(node, {}, (node, vm) => {
+      expect(() => vm.run("require('child_process');")).toThrow(
+        /not permitted/
+      );
+      expect(() => vm.run("require('net');")).toThrow(/not permitted/);
+      done();
+    });
+  });
+
+  it("should pass the live node and coreServer objects through by reference, not by copy", function (done) {
+    const contrib = coreServerSandbox;
+    const EventEmitter = require("events");
+    let node = new EventEmitter();
+    const coreServer = { marker: "original" };
+    contrib.initialize(node, coreServer, (node, vm) => {
+      // mutate the object from inside the sandbox and confirm the outer
+      // reference sees the change - this is the live-reference behavior
+      // an isolate-based sandbox (e.g. isolated-vm) could not provide
+      // without hand-wrapping every property.
+      vm.run("coreServer.marker = 'mutated-from-sandbox';");
+      expect(coreServer.marker).toBe("mutated-from-sandbox");
+      done();
     });
   });
 });

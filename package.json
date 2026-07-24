@@ -26,8 +26,7 @@
     "better-assert": "~1.0.2",
     "debug": "~4.3.4",
     "node-opcua": "~2.64.1",
-    "source-map-support": "~0.5.21",
-    "vm2": "~3.9.10"
+    "source-map-support": "~0.5.21"
   },
   "scripts": {
     "build": "npm run clean:formatter && gulp publish",
@@ -53,7 +52,7 @@
     "dev-unlink": "npm unlink node-red-contrib-opcua-compact-server -g"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   },
   "node-red": {
     "version": ">=2",

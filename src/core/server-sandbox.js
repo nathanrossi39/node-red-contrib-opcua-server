@@ -1,21 +1,65 @@
 /**
  MIT License
  Copyright (c) 2018-2022 Klaus Landsdorf (http://node-red.plus/)
+ Copyright (c) 2026 Nathan Rossi
  **/
 "use strict";
+
+// NOTE ON ISOLATION:
+// This previously used vm2, which has been deprecated by its own maintainers
+// due to multiple critical, unpatched sandbox-escape vulnerabilities (e.g.
+// CVE-2026-22709, CVE-2026-26956) and is unsafe to run in production.
+//
+// vm2 was never providing a hard security boundary for this specific use
+// case anyway: address-space scripts are handed live references to the
+// actual node-opcua `server` and `addressSpace` objects so they can build
+// out the OPC UA namespace, which is fundamentally incompatible with a
+// true isolate-based sandbox (e.g. isolated-vm) that only allows plain
+// data or hand-wrapped references across its boundary. Anyone able to
+// edit a Node-RED flow already has full code-execution privileges in
+// Node-RED itself (via core Function/exec nodes), so this was always a
+// scoped-context convenience rather than a defense against a hostile
+// script author.
+//
+// This now uses Node's own built-in `vm` module instead: no extra
+// dependency, actively maintained by Node core, and it makes the same
+// non-guarantee explicit — Node's docs state plainly that `vm` "is not a
+// security mechanism. Do not use it to run untrusted code." That has
+// always been true here; this change just stops pretending otherwise
+// while keeping the same crash-containment and scoped-globals behavior
+// address-space scripts rely on.
+const vm = require("vm");
+
 module.exports = {
   choreCompact: require("./chore").de.bianco.royal.compact,
   debugLog: require("./chore").de.bianco.royal.compact.opcuaSandboxDebug,
   errorLog: require("./chore").de.bianco.royal.compact.opcuaErrorDebug,
   initialize: (node, coreServer, done) => {
-    const { VM } = require("vm2");
     node.outstandingTimers = [];
     node.outstandingIntervals = [];
+
+    // Only 'fs' needs to be exposed via require() - Math/Date/JSON etc.
+    // are already standard globals available in any V8 context. console
+    // is injected explicitly below since node:vm contexts don't include
+    // it by default.
+    const allowedRequires = ["fs"];
 
     /* istanbul ignore next */
     const sandbox = {
       node,
       coreServer,
+      console,
+      require: (moduleName) => {
+        if (!allowedRequires.includes(moduleName)) {
+          throw new Error(
+            "require('" +
+              moduleName +
+              "') is not permitted inside an address space script. Allowed built-ins: " +
+              allowedRequires.join(", ")
+          );
+        }
+        return require(moduleName);
+      },
       sandboxNodeContext: {
         set: function () {
           node.context().set.apply(node, arguments);
@@ -109,13 +153,19 @@ module.exports = {
       },
     };
 
-    const vm = new VM({
-      require: {
-        builtin: ["fs", "Math", "Date", "console"],
-      },
-      sandbox,
-    });
+    const context = vm.createContext(sandbox);
 
-    done(node, vm);
+    // Preserve the same external .run(code) interface that vm2's VM
+    // instance exposed, so server-node.js and existing callers don't
+    // need to change.
+    const vmHandle = {
+      run: (code) => {
+        return vm.runInContext(code, context, {
+          filename: "opcua-compact-server-address-space-script.js",
+        });
+      },
+    };
+
+    done(node, vmHandle);
   },
 };
