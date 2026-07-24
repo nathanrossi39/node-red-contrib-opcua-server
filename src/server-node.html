@@ -160,7 +160,10 @@
       },
       addressSpaceScript: {
         value:
-          'function constructAlarmAddressSpace(server, addressSpace, eventObjects, done) {\n  // server = the created node-opcua server\n  // addressSpace = address space of the node-opcua server\n  // eventObjects = add event variables here to hold them in memory from this script\n\n  // internal sandbox objects are:\n  // node = the compact server node,\n  // coreServer = core compact server object for debug and access to NodeOPCUA\n  // this.sandboxNodeContext = node context node-red\n  // this.sandboxFlowContext = flow context node-red\n  // this.sandboxGlobalContext = global context node-red\n  // this.sandboxEnv = env variables\n  // timeout and interval functions as expected from nodejs\n\n  const opcua = coreServer.choreCompact.opcua;\n  const rootFolder = addressSpace.findNode("RootFolder");\n  const namespace = addressSpace.getOwnNamespace();\n\n  // your code here\n        \n  done();\n}\n'
+          'function constructAlarmAddressSpace(server, addressSpace, eventObjects, done) {\n  // server = the created node-opcua server\n  // addressSpace = address space of the node-opcua server\n  // eventObjects = add event variables here to hold them in memory from this script\n\n  // internal sandbox objects are:\n  // node = the compact server node,\n  // coreServer = core compact server object for debug and access to NodeOPCUA\n  // this.sandboxNodeContext = node context node-red\n  // this.sandboxFlowContext = flow context node-red\n  // this.sandboxGlobalContext = global context node-red\n  // this.sandboxEnv = env variables\n  // addressSpaceHelper = the module loaded from "External Helper Module" below, if set\n  // timeout and interval functions as expected from nodejs\n\n  const opcua = coreServer.choreCompact.opcua;\n  const rootFolder = addressSpace.findNode("RootFolder");\n  const namespace = addressSpace.getOwnNamespace();\n\n  // your code here\n        \n  done();\n}\n'
+      },
+      addressSpaceHelperModule: {
+        value: ""
       }
     },
     inputs: 0,
@@ -766,6 +769,13 @@
           </div>
       </div>
       <div id="compact-server-tab-ass" style="display:none">
+          <div class="form-row">
+              <label for="node-input-addressSpaceHelperModule" style="width:50%;"><i class="fa fa-file-code-o"></i> <span data-i18n="opcua-compact-contrib.label.addressSpaceHelperModule"></span></label>
+              <input type="text" id="node-input-addressSpaceHelperModule" placeholder="/home/pi/.node-red/lib/my-helper.js" style="width:50%;">
+          </div>
+          <div class="form-tips" style="margin-bottom: 8px;">
+              <span data-i18n="opcua-compact-contrib.label.addressSpaceHelperModuleTip"></span>
+          </div>
           <div class="form-row" style="margin-bottom: 0px;">
               <label for="node-input-addressSpaceScript" style="width:50%;"><i class="fa fa-wrench"></i> <span data-i18n="opcua-compact-contrib.label.function"></span></label>
               <input type="hidden" id="node-input-addressSpaceScript">

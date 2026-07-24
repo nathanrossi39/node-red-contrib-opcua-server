@@ -145,4 +145,23 @@ describe("core.server-sandbox unit testing", function () {
       done();
     });
   });
+
+  it("should expose any extraGlobals passed to initialize() as sandbox globals", function (done) {
+    const contrib = coreServerSandbox;
+    const EventEmitter = require("events");
+    let node = new EventEmitter();
+    const fakeHelperModule = {
+      greet: () => "hello from external module",
+    };
+    contrib.initialize(
+      node,
+      {},
+      (node, vm) => {
+        const result = vm.run("myExternalHelper.greet();");
+        expect(result).toBe("hello from external module");
+        done();
+      },
+      { myExternalHelper: fakeHelperModule }
+    );
+  });
 });

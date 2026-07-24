@@ -34,7 +34,7 @@ module.exports = {
   choreCompact: require("./chore").de.bianco.royal.compact,
   debugLog: require("./chore").de.bianco.royal.compact.opcuaSandboxDebug,
   errorLog: require("./chore").de.bianco.royal.compact.opcuaErrorDebug,
-  initialize: (node, coreServer, done) => {
+  initialize: (node, coreServer, done, extraGlobals) => {
     node.outstandingTimers = [];
     node.outstandingIntervals = [];
 
@@ -45,21 +45,26 @@ module.exports = {
     const allowedRequires = ["fs"];
 
     /* istanbul ignore next */
-    const sandbox = {
-      node,
-      coreServer,
-      console,
-      require: (moduleName) => {
-        if (!allowedRequires.includes(moduleName)) {
-          throw new Error(
-            "require('" +
-              moduleName +
-              "') is not permitted inside an address space script. Allowed built-ins: " +
-              allowedRequires.join(", ")
-          );
-        }
-        return require(moduleName);
+    const sandbox = Object.assign(
+      {
+        node,
+        coreServer,
+        console,
+        require: (moduleName) => {
+          if (!allowedRequires.includes(moduleName)) {
+            throw new Error(
+              "require('" +
+                moduleName +
+                "') is not permitted inside an address space script. Allowed built-ins: " +
+                allowedRequires.join(", ")
+            );
+          }
+          return require(moduleName);
+        },
       },
+      extraGlobals
+    );
+    Object.assign(sandbox, {
       sandboxNodeContext: {
         set: function () {
           node.context().set.apply(node, arguments);
@@ -151,7 +156,7 @@ module.exports = {
           node.outstandingIntervals.splice(index, 1);
         }
       },
-    };
+    });
 
     const context = vm.createContext(sandbox);
 

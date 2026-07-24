@@ -31,6 +31,8 @@
       "allowAnonymous": "Allow Anonymous",
       "isAuditing": "Auditing",
       "function": "Address Space Script",
+      "addressSpaceHelperModule": "External Helper Module",
+      "addressSpaceHelperModuleTip": "Optional. Absolute path to a .js file exposing shared address-space-building logic, loaded automatically for this node (no settings.js changes needed). Available in your script as the 'addressSpaceHelper' global. Leave blank if you don't need this.",
       "publicCertificateFile": "Public",
       "privateCertificateFile": "Private",
       "certificateFiles": "Certificate Files",

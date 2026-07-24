@@ -50,6 +50,31 @@ module.exports = function (RED) {
 
       opcuaServer = coreServer.initialize(node, opcuaServerOptions);
 
+      // Optional: load an external JS module and expose it to the
+      // address-space script as a sandbox global, without requiring any
+      // settings.js/functionGlobalContext configuration. Loaded here in
+      // trusted backend code (not inside the vm sandbox), so normal
+      // Node.js module resolution applies - the module can itself
+      // require() anything it needs normally. Left empty by default;
+      // existing address-space scripts that don't reference it are
+      // completely unaffected.
+      let addressSpaceHelperModule;
+      const helperModulePath = (
+        nodeConfig.addressSpaceHelperModule || ""
+      ).trim();
+      if (helperModulePath) {
+        try {
+          addressSpaceHelperModule = require(helperModulePath);
+        } catch (err) {
+          node.error(
+            "Could not load External Helper Module '" +
+              helperModulePath +
+              "': " +
+              err.message
+          );
+        }
+      }
+
       // Sandbox initialization must complete - and install the real
       // address-space script - BEFORE opcuaServer.initialize() is called,
       // since its callback (postInitialize) invokes
@@ -63,15 +88,20 @@ module.exports = function (RED) {
       // core/server-sandbox.js), so doing it first here removes the race
       // entirely rather than relying on incidental timing between the two
       // chains.
-      coreServerSandbox.initialize(node, coreServer, (node, vm) => {
-        node.contribOPCUACompact.vm = vm;
-        vm.run(
-          "node.contribOPCUACompact.constructAddressSpaceScript = " +
-            nodeConfig.addressSpaceScript
-        );
-        node.contribOPCUACompact.initialized = true;
-        node.emit("server_node_running");
-      });
+      coreServerSandbox.initialize(
+        node,
+        coreServer,
+        (node, vm) => {
+          node.contribOPCUACompact.vm = vm;
+          vm.run(
+            "node.contribOPCUACompact.constructAddressSpaceScript = " +
+              nodeConfig.addressSpaceScript
+          );
+          node.contribOPCUACompact.initialized = true;
+          node.emit("server_node_running");
+        },
+        { addressSpaceHelper: addressSpaceHelperModule }
+      );
 
       // node-opcua's own ServerEngine.initialize() has a .catch().then()
       // chaining bug: the .catch() handler doesn't stop the chain, so a
