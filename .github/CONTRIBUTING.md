@@ -1,4 +1,4 @@
-# Contributing to node-red-contrib-opcua-server
+# Contributing to node-red-contrib-opcua-compact-server
 
 As in Node-RED we have some guidelines for the OPC UA contribution package.
 We welcome contributions, but request you follow these guidelines.
@@ -33,7 +33,7 @@ At a minimum, please include:
 
  - Version of node.js? (should be >= 16)
  - Version of Node-RED? (should be >= 3)
- - Version of node-red-contrib-opcua-server? (should be >= 1)
+ - Version of node-red-contrib-opcua-compact-server? (should be >= 1)
  
  - What is your platform? (Linux, macOS, ...)
  - What does `DEBUG=opcuaCompact:* node-red -v` say? (log files are welcome)

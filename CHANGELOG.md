@@ -1,3 +1,20 @@
+# [1.0.0](https://github.com/nathanrossi39/node-red-contrib-opcua-server) (2026)
+
+Forked and renamed from `node-red-contrib-opcua-server` (deprecated upstream) to
+`node-red-contrib-opcua-compact-server`. All history below this point is inherited
+from the original project; see the README for details on what's changed.
+
+### Bug Fixes
+
+* sandboxed `setTimeout`/`setInterval` wrappers in address-space scripts never
+  actually applied their cleanup and error-handling logic, because the wrapped
+  callback was assigned after the real timer was already scheduled. Fixed so
+  fired `setTimeout` calls are correctly removed from internal tracking, and
+  errors thrown inside `setInterval` callbacks are routed to `node.error()`
+  instead of crashing the Node-RED process. See `src/core/server-sandbox.js`.
+
+
+
 # [1.1.0](https://github.com/BiancoRoyal/node-red-contrib-opcua-server/compare/v0.4.0...v1.1.0) (2022-07-31)
 
 
