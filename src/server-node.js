@@ -73,7 +73,51 @@ module.exports = function (RED) {
         node.emit("server_node_running");
       });
 
+      // node-opcua's own ServerEngine.initialize() has a .catch().then()
+      // chaining bug: the .catch() handler doesn't stop the chain, so a
+      // subsequent .then() can throw a brand new, completely unhandled
+      // promise rejection (observed as a generic "Internal error") that
+      // never reaches opcuaServer.initialize()'s own callback at all -
+      // most likely to happen under resource contention from creating
+      // several OPCUAServer instances in quick succession within the
+      // same process, e.g. rapid Node-RED redeploys. In modern Node.js,
+      // an unhandled rejection crashes the entire process by default,
+      // which would take down the whole Node-RED instance, not just
+      // this node. This narrow, self-removing listener converts that
+      // into a normal, catchable server_start_error instead. The window
+      // is intentionally as short as possible (removed as soon as our
+      // own initialize() settles) to minimize the small risk of
+      // capturing an unrelated rejection from elsewhere in the same
+      // Node-RED process during that window.
+      let initSettled = false;
+      const handleUnexpectedInitRejection = (reason) => {
+        if (initSettled) {
+          return;
+        }
+        initSettled = true;
+        process.removeListener(
+          "unhandledRejection",
+          handleUnexpectedInitRejection
+        );
+        coreServer.errorLog(reason);
+        /* istanbul ignore next */
+        node.warn(reason);
+        coreServer.choreCompact.setStatusError(
+          node,
+          (reason && reason.message) || "internal initialization error"
+        );
+        node.emit("server_start_error", reason);
+      };
+      process.on("unhandledRejection", handleUnexpectedInitRejection);
+
       opcuaServer.initialize(() => {
+        if (!initSettled) {
+          initSettled = true;
+          process.removeListener(
+            "unhandledRejection",
+            handleUnexpectedInitRejection
+          );
+        }
         coreServer.postInitialize(node, opcuaServer);
       });
 
