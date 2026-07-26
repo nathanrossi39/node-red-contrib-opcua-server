@@ -190,7 +190,18 @@ module.exports = {
   // unmockedModulePathPatterns: undefined,
 
   // Indicates whether each individual test should be reported during the run
-  verbose: true
+  verbose: true,
+
+  // Run test files serially rather than in parallel worker processes.
+  // This suite spins up real OPCUAServer instances bound to real ports
+  // across several test files. Under parallel worker resource
+  // contention, a known node-opcua internal timing issue (server_engine.ts
+  // - see the unhandledRejection safety net comment in src/server-node.js)
+  // becomes noticeably more likely to trigger, causing intermittent test
+  // failures that don't reproduce when run serially. Given the nature of
+  // this suite (real network servers, not pure unit tests), serial
+  // execution is the correct default here rather than a workaround.
+  maxWorkers: 1
 
   // An array of regexp patterns that are matched against all source file paths before re-running tests in watch mode
   // watchPathIgnorePatterns: [],
