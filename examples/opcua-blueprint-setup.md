@@ -1,5 +1,15 @@
 # Shared blueprint address-space helper - setup
 
+**Want to see it all working first?** Import
+`opcua-blueprint-full-example-flow.json` (in this same folder) into a
+fresh Node-RED tab - it's a complete, self-contained example with a
+built-in data simulator (no MQTT or other infrastructure needed), wiring
+together the blueprint helper, the Namespace URI field, and Bad-quality
+tag flagging. It only needs one change before deploying: update the
+"External Helper Module" path in the server node to wherever you save
+`opcua-blueprint-helper.js` on your own system. Verified end-to-end with
+a real connected OPC UA client reading live values.
+
 This moves the OPC UA address-space-building logic out of each node's
 "Address Space Script" textarea and into a real, shared, version-controlled
 `.js` file. After this, every server node's script is a few lines that

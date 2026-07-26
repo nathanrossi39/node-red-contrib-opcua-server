@@ -54,6 +54,54 @@ const pkiMainEntry = require.resolve("node-opcua-pki");
 const pkiPackageRoot = findPackageRoot(path.dirname(pkiMainEntry));
 const binScript = path.join(pkiPackageRoot, "dist", "bin", "pki.mjs");
 
+// The pki CLI shells out to the system's own 'openssl' binary to
+// actually generate certificates. Unlike most Linux distributions
+// (which ship OpenSSL by default), Windows does not - so on a fresh
+// Windows install this would otherwise fail deep inside node-opcua-pki
+// with a cryptic native/spawn error that gives no indication what's
+// actually missing or how to fix it. Check up front instead and give
+// clear, platform-specific guidance.
+const opensslCheck = spawnSync("openssl", ["version"], {
+  stdio: "pipe",
+  shell: process.platform === "win32",
+});
+
+if (opensslCheck.error || opensslCheck.status !== 0) {
+  console.error("");
+  console.error(
+    "ERROR: 'openssl' was not found on your PATH, but it's required to generate certificates."
+  );
+  console.error("");
+  if (process.platform === "win32") {
+    console.error("On Windows, install OpenSSL with one of:");
+    console.error(
+      "  - Git for Windows (bundles a usable openssl.exe): https://gitforwindows.org/"
+    );
+    console.error(
+      "  - Or a dedicated build: https://slproweb.com/products/Win32OpenSSL.html"
+    );
+    console.error(
+      "  - Or via a package manager: choco install openssl  (if you have Chocolatey)"
+    );
+    console.error(
+      "                              winget install ShiningLight.OpenSSL"
+    );
+    console.error(
+      "After installing, make sure openssl.exe's folder is added to your PATH,"
+    );
+    console.error("then open a new terminal and try again.");
+  } else {
+    console.error(
+      "On Linux, install it via your package manager, e.g.:"
+    );
+    console.error("  sudo apt-get install openssl   (Debian/Ubuntu/Raspberry Pi OS)");
+    console.error("  sudo yum install openssl       (RHEL/CentOS)");
+    console.error("On macOS: brew install openssl");
+  }
+  console.error("");
+  process.exit(1);
+}
+
 const result = spawnSync(
   process.execPath,
   [binScript, ...process.argv.slice(2)],
