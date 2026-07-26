@@ -99,6 +99,17 @@
  * @param {number} [options.statusUpdateIntervalMs=3000] - how often to refresh the node's status text
  * @param {number} [options.maxRetries=30] - how many times to poll for the blueprint before giving up
  * @param {number} [options.retryDelayMs=1000] - delay between blueprint polling attempts
+ * @param {string} [options.dataHeartbeatKey="OpcDataLastUpdate"] - flow context key holding a
+ *   timestamp (Date.now() milliseconds) of when live data was last actually received. Your ingest
+ *   flow needs to update this alongside OpcData (see opcua-blueprint-node-script.js's companion
+ *   ingest snippet). If this key is never set, staleness detection is simply skipped and tags always
+ *   report Good - so this is safe to leave unconfigured if you don't need quality flagging.
+ * @param {number} [options.staleDataThresholdMs=10000] - if no update has been seen within this many
+ *   milliseconds (per dataHeartbeatKey), every tag reports a Bad status code instead of Good -
+ *   mirroring how Kepware flags tags Bad when the underlying device/connection is down, rather than
+ *   silently continuing to show the last known value as if it were current.
+ * @param {string} [options.staleDataStatusCode="BadNoCommunication"] - which node-opcua StatusCodes
+ *   name to report when stale (e.g. "BadNoCommunication", "BadDeviceFailure", "BadWaitingForInitialData").
  */
 function buildBlueprintAddressSpace(
   server,
@@ -124,12 +135,19 @@ function buildBlueprintAddressSpace(
       maxRetries: 30,
       retryDelayMs: 1000,
       startupStaggerMs: 0,
+      dataHeartbeatKey: "OpcDataLastUpdate",
+      staleDataThresholdMs: 10000,
+      staleDataStatusCode: "BadNoCommunication",
     },
     options
   );
 
   const Variant = opcua.Variant;
   const DataType = opcua.DataType;
+  const DataValue = opcua.DataValue;
+  const StatusCodes = opcua.StatusCodes;
+  const staleStatusCode =
+    StatusCodes[opts.staleDataStatusCode] || StatusCodes.BadNoCommunication;
 
   const validTypes = {
     Double: DataType.Double,
@@ -205,12 +223,27 @@ function buildBlueprintAddressSpace(
       // context on every single OPC UA read - keeps reads fast under
       // load from many simultaneous client subscriptions.
       let cachedData = {};
+      let isStale = false; // true once no heartbeat update has been seen
+      // within staleDataThresholdMs - mirrors Kepware flagging tags Bad
+      // when the underlying device/connection is down, rather than
+      // silently continuing to report the last known value as current.
       const dataRefreshHandle = setInterval(() => {
         cachedData =
           sandboxFlowContext.get(
             opts.dataContextKey,
             opts.dataContextStore
           ) || {};
+
+        const lastUpdate = sandboxFlowContext.get(
+          opts.dataHeartbeatKey,
+          opts.dataContextStore
+        );
+        // If the heartbeat key was never set at all, staleness detection
+        // is simply skipped (isStale stays false) - safe default for
+        // anyone not using the heartbeat convention.
+        if (typeof lastUpdate === "number") {
+          isStale = Date.now() - lastUpdate > opts.staleDataThresholdMs;
+        }
       }, opts.dataRefreshIntervalMs);
 
       const statusHandle = setInterval(() => {
@@ -263,33 +296,44 @@ function buildBlueprintAddressSpace(
             dataType: opcDataType,
             minimumSamplingInterval: opts.dataRefreshIntervalMs,
             value: {
-              get: function () {
+              timestamped_get: function () {
                 const val =
                   cachedData[folderName + "." + shortTagName] ?? 0;
 
+                let variant;
                 switch (opcDataType) {
                   case DataType.Boolean:
-                    return new Variant({
+                    variant = new Variant({
                       dataType: DataType.Boolean,
                       value: !!val,
                     });
+                    break;
                   case DataType.Int16:
                   case DataType.Int32:
-                    return new Variant({
+                    variant = new Variant({
                       dataType: opcDataType,
                       value: Math.round(val),
                     });
+                    break;
                   case DataType.String:
-                    return new Variant({
+                    variant = new Variant({
                       dataType: DataType.String,
                       value: String(val),
                     });
+                    break;
                   default:
-                    return new Variant({
+                    variant = new Variant({
                       dataType: DataType.Double,
                       value: Number(val) || 0,
                     });
+                    break;
                 }
+
+                return new DataValue({
+                  value: variant,
+                  statusCode: isStale ? staleStatusCode : StatusCodes.Good,
+                  sourceTimestamp: new Date(),
+                });
               },
               set: function (variant) {
                 node.send({

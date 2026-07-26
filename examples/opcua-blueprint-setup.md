@@ -94,3 +94,43 @@ Never touch any node's script again. Just edit whatever populates
 node, or wherever that comes from) - the shared helper picks up any
 folder/tag structure automatically the next time a server node
 (re)deploys.
+
+## Optional: Bad-quality tags when the device/feed goes down
+
+By default, if your data source (MQTT feed, PLC connection, etc.) stops
+sending updates, tags silently keep reporting their last known value as
+if it were still current - a client has no way to tell the data is
+stale just by looking at the value. Kepware and similar gateways solve
+this with OPC UA's built-in quality/status-code mechanism: flagging
+every tag Bad when the underlying device or connection is down, rather
+than showing stale-but-plausible-looking numbers.
+
+This helper supports the same pattern via a heartbeat convention:
+
+1. Replace your MQTT ingest Function node's script with the updated
+   version in `opcua-ingest-with-heartbeat.js` (in this same folder).
+   The only change is one new line,
+   `flow.set("OpcDataLastUpdate", Date.now(), "memoryOnly")`, set
+   whenever a message actually arrives - regardless of whether any tag
+   value changed, since even a repeated identical reading proves the
+   device is still communicating.
+
+2. That's it by default - `staleDataThresholdMs` defaults to 10 seconds.
+   If no heartbeat update lands within that window, every tag on that
+   server node reports `BadNoCommunication` to OPC UA clients instead
+   of `Good`, until the heartbeat resumes.
+
+3. To tune this per node, pass overrides in the bootstrap script's
+   options object:
+   ```js
+   { staleDataThresholdMs: 5000, staleDataStatusCode: "BadDeviceFailure" }
+   ```
+   `staleDataStatusCode` can be any name from node-opcua's `StatusCodes`
+   enum (e.g. `BadNoCommunication`, `BadDeviceFailure`,
+   `BadWaitingForInitialData`).
+
+If you don't add the heartbeat line to your ingest function, this
+feature is simply inactive - tags always report Good, exactly like
+before. Nothing breaks either way; the heartbeat key is checked
+defensively and staleness detection is skipped entirely if it's never
+set.
