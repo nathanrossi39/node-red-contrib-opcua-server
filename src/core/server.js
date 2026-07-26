@@ -1,8 +1,4 @@
-/**
- MIT License
- Copyright (c) 2018-2022 Klaus Landsdorf (http://node-red.plus/)
- Copyright (c) 2019 Sterfive (https://www.sterfive.com/)
- **/
+/** Licensed under MIT - see LICENSE for full copyright notices. **/
 "use strict";
 
 module.exports = {
@@ -143,8 +139,15 @@ module.exports = {
     server.shutdown(node.serverShutdownTimeout, done);
   },
   getRegisterServerMethod: (id) => {
-    const RegisterServerMethod = require("node-opcua").RegisterServerMethod;
-    return RegisterServerMethod[id];
+    // The editor dropdown's option values (1=HIDDEN, 2=MDNS, 3=LDS)
+    // already match node-opcua's RegisterServerMethod numeric values
+    // exactly, so the raw config value just needs parsing as a number -
+    // no enum lookup needed. RegisterServerMethod[id] here would be
+    // wrong: indexing that enum object with a numeric-string key
+    // returns the enum's NAME (e.g. "HIDDEN"), not the numeric value
+    // OPCUAServer's constructor actually expects.
+    const parsed = parseInt(id, 10);
+    return Number.isFinite(parsed) ? parsed : undefined;
   },
   loadOPCUANodeSets: (node, dirname) => {
     const xmlFiles = [
@@ -204,9 +207,15 @@ module.exports = {
       module.exports.choreCompact.coreSecurity.serverKeyFile("2048");
 
     // const SecurityPolicy = require("node-opcua").SecurityPolicy;
-    const registerServerMethod = 1; /* module.exports.getRegisterServerMethod(
-      node.registerServerMethod
-    ) || 1; */
+    // Restored to actually respect the node's Discovery tab selection
+    // (was previously hardcoded to 1/HIDDEN regardless of user
+    // configuration, working around a bug in getRegisterServerMethod -
+    // see that function's comment). Confirmed a configured LDS endpoint
+    // with no LDS actually running does not crash the process on the
+    // current node-opcua version (start() completes cleanly, no
+    // unhandled rejection) before restoring this.
+    const registerServerMethod =
+      module.exports.getRegisterServerMethod(node.registerServerMethod) || 1;
 
     return {
       port: typeof node.port === "string" ? parseInt(node.port) : node.port,
@@ -403,7 +412,6 @@ module.exports = {
             );
           }
 
-          /* istanbul ignore next */
           server.on("newChannel", (channel) => {
             module.exports.debugLog(
               "Client connected with address = " +
@@ -413,7 +421,6 @@ module.exports = {
             );
           });
 
-          /* istanbul ignore next */
           server.on("closeChannel", function (channel) {
             module.exports.debugLog(
               "Client disconnected with address = " +
@@ -423,7 +430,6 @@ module.exports = {
             );
           });
 
-          /* istanbul ignore next */
           server.on("create_session", function (session) {
             module.exports.debugLog(
               "############## SESSION CREATED ##############"
@@ -438,22 +444,23 @@ module.exports = {
               );
               module.exports.detailLog(
                 "Client application name:" +
-                  session.clientDescription.applicationName
-                  ? session.clientDescription.applicationName.toString()
-                  : "none application name"
+                  (session.clientDescription.applicationName
+                    ? session.clientDescription.applicationName.toString()
+                    : "none application name")
               );
               module.exports.detailLog(
                 "Client application type:" +
-                  session.clientDescription.applicationType
-                  ? session.clientDescription.applicationType.toString()
-                  : "none application type"
+                  (session.clientDescription.applicationType
+                    ? session.clientDescription.applicationType.toString()
+                    : "none application type")
               );
             }
 
             module.exports.debugLog(
-              "Session name:" + session.sessionName
-                ? session.sessionName.toString()
-                : "none session name"
+              "Session name:" +
+                (session.sessionName
+                  ? session.sessionName.toString()
+                  : "none session name")
             );
             module.exports.debugLog(
               "Session timeout:" + session.sessionTimeout
@@ -461,16 +468,16 @@ module.exports = {
             module.exports.debugLog("Session id:" + session.sessionId);
           });
 
-          /* istanbul ignore next */
           server.on("session_closed", function (session, reason) {
             module.exports.debugLog(
               "############## SESSION CLOSED ##############"
             );
             module.exports.detailLog("reason:" + reason);
             module.exports.detailLog(
-              "Session name:" + session.sessionName
-                ? session.sessionName.toString()
-                : "none session name"
+              "Session name:" +
+                (session.sessionName
+                  ? session.sessionName.toString()
+                  : "none session name")
             );
           });
 

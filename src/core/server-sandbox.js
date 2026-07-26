@@ -1,8 +1,4 @@
-/**
- MIT License
- Copyright (c) 2018-2022 Klaus Landsdorf (http://node-red.plus/)
- Copyright (c) 2026 Nathan Rossi
- **/
+/** Licensed under MIT - see LICENSE for full copyright notices. **/
 "use strict";
 
 // NOTE ON ISOLATION:

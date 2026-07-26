@@ -1,7 +1,4 @@
-/**
- MIT License
- Copyright (c) 2018-2022 Klaus Landsdorf (http://node-red.plus/)
- **/
+/** Licensed under MIT - see LICENSE for full copyright notices. **/
 "use strict";
 module.exports = {
   de: {

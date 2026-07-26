@@ -1,7 +1,4 @@
-/**
- MIT License
- Copyright (c) 2018-2022 Klaus Landsdorf (http://node-red.plus/)
- **/
+/** Licensed under MIT - see LICENSE for full copyright notices. **/
 "use strict";
 
 jest.setTimeout(20000);
@@ -55,6 +52,37 @@ describe("OPC UA Flex-Server node e2e Testing", function () {
         });
         n1.on("server_running", () => {
           setTimeout(done, 6000);
+        });
+      });
+    });
+
+    it("should handle a real client connecting, creating a session, and disconnecting without crashing", function (done) {
+      const { OPCUAClient } = require("node-opcua");
+
+      helper.load(serverTestNodes, flows.serverFlow, function () {
+        let n1 = helper.getNode("0397425415db6872");
+
+        n1.on("server_start_error", (err) => {
+          done(err);
+        });
+
+        n1.on("server_running", async () => {
+          const client = OPCUAClient.create({
+            endpointMustExist: false,
+          });
+
+          try {
+            await client.connect("opc.tcp://localhost:54840");
+            const session = await client.createSession();
+            // give the create_session handler's own logging a moment
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            await session.close();
+            await client.disconnect();
+            // give the session_closed/closeChannel handlers a moment too
+            setTimeout(done, 200);
+          } catch (err) {
+            done(err);
+          }
         });
       });
     });

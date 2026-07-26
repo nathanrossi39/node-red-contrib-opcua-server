@@ -1,7 +1,4 @@
-/**
- MIT License
- Copyright (c) 2018-2022 Klaus Landsdorf (http://node-red.plus/)
- **/
+/** Licensed under MIT - see LICENSE for full copyright notices. **/
 
 jest.setTimeout(10000);
 
@@ -25,6 +22,35 @@ describe("core.server unit testing", function () {
     });
     expect(node.namespaceUri).toBe("http://example.com/custom-namespace");
     done();
+  });
+
+  describe("getRegisterServerMethod", function () {
+    it("should return the numeric value matching each editor dropdown option", function () {
+      // Editor dropdown: 1=HIDDEN, 2=MDNS, 3=LDS (see server-node.html) -
+      // these must stay numerically aligned with node-opcua's own
+      // RegisterServerMethod enum values.
+      expect(coreServer.getRegisterServerMethod("1")).toBe(1);
+      expect(coreServer.getRegisterServerMethod("2")).toBe(2);
+      expect(coreServer.getRegisterServerMethod("3")).toBe(3);
+      expect(coreServer.getRegisterServerMethod(1)).toBe(1);
+    });
+
+    it("should NOT return the enum name string for a numeric-string id", function () {
+      // Regression guard: RegisterServerMethod["1"] in node-opcua
+      // returns the enum NAME ("HIDDEN"), not the numeric value 1 -
+      // that mismatch is exactly what caused this to be hardcoded/
+      // disabled previously.
+      const result = coreServer.getRegisterServerMethod("1");
+      expect(typeof result).toBe("number");
+      expect(result).not.toBe("HIDDEN");
+    });
+
+    it("should return undefined for an invalid id rather than throwing", function () {
+      expect(coreServer.getRegisterServerMethod("not-a-number")).toBe(
+        undefined
+      );
+      expect(coreServer.getRegisterServerMethod(undefined)).toBe(undefined);
+    });
   });
 
   it("should initialize debugLog", function (done) {
