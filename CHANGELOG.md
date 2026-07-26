@@ -53,6 +53,16 @@
   is running with insecure/unbounded defaults: no real certificate
   configured, anonymous access enabled, or unset session/connection/
   subscription limits. Informational only - does not block startup.
+* added an optional heartbeat convention to the example blueprint helper
+  (`examples/opcua-blueprint-helper.js`) for Kepware-style Bad-quality tag
+  flagging: if a data source stops sending updates, every tag on that
+  server node reports a Bad status code (default `BadNoCommunication`)
+  to OPC UA clients instead of silently continuing to show the last known
+  value as current, once resumed it automatically reports Good again.
+  See `examples/opcua-ingest-with-heartbeat.js` and
+  `examples/opcua-blueprint-setup.md` for the required one-line ingest
+  update and full documentation. Backward compatible - inactive unless
+  the heartbeat key is explicitly set by the ingest flow.
 
 ### Tests
 
@@ -143,6 +153,3 @@ from the original project; see the README for details on what's changed.
 ### Features
 
 * **server:** add the wohle server from compact development ([4091b60](https://github.com/BiancoRoyal/node-red-contrib-opcua-server/commit/4091b604e4e34a582864a47b42630861b1742d3b))
-
-
-
