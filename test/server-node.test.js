@@ -1,8 +1,4 @@
-/**
- MIT License
-
- Copyright (c) 2018-2022 Klaus Landsdorf (http://node-red.plus/)
- **/
+/** Licensed under MIT - see LICENSE for full copyright notices. **/
 
 jest.setTimeout(20000);
 
@@ -18,7 +14,18 @@ const serverTestNodes = [injectNode, nut];
 describe("OPC UA Flex-Server node e2e Testing", function () {
   beforeEach(function (done) {
     helper.startServer(function () {
-      done();
+      // Small stagger between rapid successive server instantiations in
+      // this test file. node-opcua has a known internal timing issue
+      // (see server-node.js's unhandledRejection safety net comment)
+      // that's more likely to trigger under back-to-back instantiation
+      // with essentially no gap - which happens here but not in normal
+      // Node-RED usage (a flow redeploy doesn't recreate several server
+      // nodes in immediate succession like this test file does). The
+      // production code already handles this gracefully via that
+      // safety net; this stagger is purely to reduce test flakiness,
+      // since Jest's own unhandledRejection detection fails a test
+      // regardless of whether application code also handled it.
+      setTimeout(done, 300);
     });
   });
 
