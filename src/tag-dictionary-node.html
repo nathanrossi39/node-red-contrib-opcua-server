@@ -111,12 +111,26 @@
         let parsed;
         try {
           parsed = JSON.parse(raw);
-        } catch (err) {
-          RED.notify(
-            "Could not parse as JSON: " + err.message,
-            { type: "error", timeout: 6000 }
-          );
-          return;
+        } catch (firstErr) {
+          // Fall back to a more lenient parse - handles pasting directly
+          // from existing JS code (e.g. "const masterDictionary = {...};")
+          // rather than requiring the user to hand-clean it into strict
+          // JSON first, since that's the realistic use case here.
+          let cleaned = raw;
+          cleaned = cleaned.replace(/^(const|let|var)\s+\w+\s*=\s*/, "");
+          cleaned = cleaned.replace(/;\s*$/, "");
+          cleaned = cleaned.replace(/\/\/.*$/gm, "");
+          cleaned = cleaned.replace(/,(\s*[}\]])/g, "$1");
+
+          try {
+            parsed = JSON.parse(cleaned);
+          } catch (secondErr) {
+            RED.notify(
+              "Could not parse as JSON: " + firstErr.message,
+              { type: "error", timeout: 6000 }
+            );
+            return;
+          }
         }
 
         if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -200,8 +214,11 @@
       Paste an object shaped like
       <code>{"FolderName": {"TagName": "Double", "OtherTag": "Boolean"}}</code>
       - this is the same shape as the old hand-typed "Master Dictionary"
-      pattern. Unrecognized data types fall back to "Double" rather than
-      being dropped.
+      pattern. You can paste it as-is straight from existing JS code
+      (a leading <code>const x = </code>, trailing <code>;</code>, and
+      <code>//</code> comments are all stripped automatically) - no need
+      to hand-clean it into strict JSON first. Unrecognized data types
+      fall back to "Double" rather than being dropped.
     </div>
     <textarea id="node-tag-dictionary-import-textarea" rows="8" style="width:100%; font-family:monospace; font-size:12px;" placeholder='{
   "Machine1": {
