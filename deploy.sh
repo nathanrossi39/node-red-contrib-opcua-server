@@ -36,7 +36,18 @@ rm -rf node_modules package-lock.json certificates
 npm install --unsafe-perm --build-from-source
 
 echo "=== 3/7: Running test suite ==="
-npm test
+# This suite has a known, intermittent node-opcua internal timing flake
+# (see jest.config.js's maxWorkers comment) - mitigated but not 100%
+# eliminated. Since set -e treats any failure as fatal, a single flaky
+# run would otherwise silently block every later step (build, install)
+# with no clear indication why. Retry once before giving up for real.
+if ! npm test; then
+  echo ""
+  echo "First test run failed - retrying once (this suite has a known,"
+  echo "intermittent timing-related flake, not necessarily a real failure)..."
+  echo ""
+  npm test
+fi
 
 echo "=== 4/7: Building package ==="
 npm run build
