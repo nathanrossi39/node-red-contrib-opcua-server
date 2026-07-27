@@ -1,0 +1,144 @@
+<!-- Licensed under MIT - see LICENSE for full copyright notices. -->
+<script type="text/javascript">
+  RED.nodes.registerType("opcua-tag-dictionary", {
+    category: "OPC UA",
+    color: "#c0deed",
+    defaults: {
+      name: { value: "" },
+      blueprintContextKey: { value: "OpcBlueprint" },
+      contextStore: { value: "memoryOnly" },
+      tags: { value: [] },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "font-awesome/fa-table",
+    label: function () {
+      return this.name || "opcua-tag-dictionary";
+    },
+    paletteLabel: "tag dictionary",
+    oneditprepare: function () {
+      const node = this;
+      const dataTypes = ["Double", "Boolean", "Int16", "Int32", "String"];
+
+      $("#node-input-tag-container")
+        .css("min-height", "250px")
+        .css("min-width", "550px")
+        .editableList({
+          addItem: function (container, index, data) {
+            data.folder = data.folder || "";
+            data.tagName = data.tagName || "";
+            data.dataType = data.dataType || "Double";
+
+            const row = $("<div/>", { style: "display:flex; gap:6px;" }).appendTo(
+              container
+            );
+
+            $("<input/>", {
+              type: "text",
+              class: "node-input-tag-folder",
+              placeholder: "Folder (e.g. Machine1)",
+              style: "flex:2; min-width:0;",
+            })
+              .val(data.folder)
+              .appendTo(row);
+
+            $("<input/>", {
+              type: "text",
+              class: "node-input-tag-name",
+              placeholder: "Tag name (e.g. Speed)",
+              style: "flex:2; min-width:0;",
+            })
+              .val(data.tagName)
+              .appendTo(row);
+
+            const select = $("<select/>", {
+              class: "node-input-tag-type",
+              style: "flex:1; min-width:0;",
+            }).appendTo(row);
+
+            dataTypes.forEach(function (t) {
+              $("<option/>").val(t).text(t).appendTo(select);
+            });
+            select.val(data.dataType);
+          },
+          removable: true,
+          sortable: true,
+        });
+
+      const tags = Array.isArray(node.tags) ? node.tags : [];
+      tags.forEach(function (tag) {
+        $("#node-input-tag-container").editableList("addItem", tag);
+      });
+    },
+    oneditsave: function () {
+      const rows = $("#node-input-tag-container").editableList("items");
+      const tags = [];
+
+      rows.each(function () {
+        const folder = $(this).find(".node-input-tag-folder").val();
+        const tagName = $(this).find(".node-input-tag-name").val();
+        const dataType = $(this).find(".node-input-tag-type").val();
+        tags.push({ folder: folder, tagName: tagName, dataType: dataType });
+      });
+
+      this.tags = tags;
+    },
+  });
+</script>
+
+<script type="text/html" data-template-name="opcua-tag-dictionary">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Tag Dictionary">
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-blueprintContextKey"><i class="fa fa-key"></i> Context Key</label>
+    <input type="text" id="node-input-blueprintContextKey" placeholder="OpcBlueprint">
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-contextStore"><i class="fa fa-database"></i> Context Store</label>
+    <input type="text" id="node-input-contextStore" placeholder="memoryOnly">
+  </div>
+
+  <div class="form-tips" style="margin-bottom: 8px;">
+    Add one row per tag below. Tags sharing the same Folder name are grouped
+    together automatically - this becomes the OPC UA folder structure your
+    address-space script (via opcua-blueprint-helper.js) reads from. Published
+    to flow context under the Context Key above whenever this node deploys,
+    or whenever it receives an input message (wire an inject node to it if
+    you want to force a refresh without redeploying).
+  </div>
+
+  <div class="form-row node-input-rule-container-row">
+    <ol id="node-input-tag-container"></ol>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="opcua-tag-dictionary">
+  <p>
+    A configuration screen for the OPC UA tag dictionary (the "blueprint"),
+    replacing hand-typed JavaScript in a Function node with an editable
+    table right in the Node-RED editor.
+  </p>
+  <p>
+    Each row is one tag: a Folder name (tags sharing a folder are grouped
+    together), a Tag name, and a Data Type. On deploy, this is converted
+    into the nested <code>{folder: {tagName: dataType}}</code> shape and
+    published to flow context under the configured Context Key - the same
+    convention <code>examples/opcua-blueprint-helper.js</code> reads from,
+    so no other part of your flow needs to change when you add or edit
+    tags here.
+  </p>
+  <h3>Inputs</h3>
+  <p>
+    Any input message re-publishes the current dictionary (useful for
+    forcing a refresh via an inject node without a full redeploy).
+  </p>
+  <h3>Outputs</h3>
+  <p>
+    <code>msg.payload</code> - the published blueprint object, on both
+    deploy and any input message.
+  </p>
+</script>

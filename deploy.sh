@@ -45,6 +45,10 @@ echo "=== 5/7: Copying blueprint helper into place ==="
 mkdir -p "$LIB_DIR"
 cp "$REPO_DIR/examples/opcua-blueprint-helper.js" "$LIB_DIR/opcua-blueprint-helper.js"
 echo "Copied to $LIB_DIR/opcua-blueprint-helper.js"
+echo ""
+echo "Use this exact path in each node's 'External Helper Module' field:"
+echo "  $LIB_DIR/opcua-blueprint-helper.js"
+echo ""
 
 echo "=== 6/7: Checking settings.js is wired up ==="
 if grep -q "opcuaBlueprintHelper" "$NODE_RED_DIR/settings.js"; then

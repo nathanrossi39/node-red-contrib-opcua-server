@@ -25,7 +25,7 @@ function Write-Step($msg) {
 }
 
 # --- 1/8: Check prerequisites ---
-Write-Step "1/8: Checking prerequisites"
+Write-Step "1/9: Checking prerequisites"
 
 function Test-CommandExists($name) {
     return [bool](Get-Command $name -ErrorAction SilentlyContinue)
@@ -77,14 +77,14 @@ if (-not (Test-CommandExists "node-red")) {
 Write-Host "All prerequisites present: node, npm, git, openssl, node-red." -ForegroundColor Green
 
 # --- 2/8: Pull latest from GitHub ---
-Write-Step "2/8: Pulling latest from GitHub"
+Write-Step "2/9: Pulling latest from GitHub"
 Set-Location $RepoDir
 git fetch origin
 git checkout $Branch
 git reset --hard "origin/$Branch"
 
 # --- 3/8: Install dependencies ---
-Write-Step "3/8: Installing dependencies"
+Write-Step "3/9: Installing dependencies"
 if (Test-Path "node_modules") { Remove-Item -Recurse -Force "node_modules" }
 if (Test-Path "package-lock.json") { Remove-Item -Force "package-lock.json" }
 if (Test-Path "certificates") { Remove-Item -Recurse -Force "certificates" }
@@ -95,7 +95,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # --- 4/8: Run test suite ---
-Write-Step "4/8: Running test suite"
+Write-Step "4/9: Running test suite"
 npm test
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Tests failed. Review the output above before deploying a potentially broken build."
@@ -103,15 +103,29 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # --- 5/8: Build package ---
-Write-Step "5/8: Building package"
+Write-Step "5/9: Building package"
 npm run build
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Build failed."
     exit 1
 }
 
+# --- 5b/8: Copy blueprint helper into place ---
+Write-Step "6/9: Copying blueprint helper into place"
+$LibDir = Join-Path $NodeRedDir "lib"
+if (-not (Test-Path $LibDir)) {
+    New-Item -ItemType Directory -Path $LibDir | Out-Null
+}
+$HelperDest = Join-Path $LibDir "opcua-blueprint-helper.js"
+Copy-Item (Join-Path $RepoDir "examples\opcua-blueprint-helper.js") $HelperDest -Force
+Write-Host "Copied to $HelperDest" -ForegroundColor Green
+Write-Host ""
+Write-Host "Use this exact path in each node's 'External Helper Module' field:" -ForegroundColor Cyan
+Write-Host "  $HelperDest" -ForegroundColor Cyan
+Write-Host ""
+
 # --- 6/8: Check port 1880 isn't already in use ---
-Write-Step "6/8: Checking port 1880 is free"
+Write-Step "7/9: Checking port 1880 is free"
 $existing = Get-NetTCPConnection -LocalPort 1880 -State Listen -ErrorAction SilentlyContinue
 if ($existing) {
     $pid1880 = $existing[0].OwningProcess
@@ -130,7 +144,7 @@ if ($existing) {
 }
 
 # --- 7/8: Reinstall into Node-RED ---
-Write-Step "7/8: Reinstalling into Node-RED"
+Write-Step "8/9: Reinstalling into Node-RED"
 if (-not (Test-Path $NodeRedDir)) {
     New-Item -ItemType Directory -Path $NodeRedDir | Out-Null
     Write-Host "Created $NodeRedDir (first-time setup)." -ForegroundColor Yellow
@@ -144,7 +158,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # --- 8/8: Start Node-RED ---
-Write-Step "8/8: Deploy complete. Starting Node-RED with verbose logging."
+Write-Step "9/9: Deploy complete. Starting Node-RED with verbose logging."
 Write-Host "Press Ctrl+C once you've confirmed it started cleanly (all server" -ForegroundColor Yellow
 Write-Host "nodes showing 'OPC UA Server LIVE'), then start it normally for" -ForegroundColor Yellow
 Write-Host "ongoing use (e.g. as a Windows service, or just 'node-red' in its" -ForegroundColor Yellow
