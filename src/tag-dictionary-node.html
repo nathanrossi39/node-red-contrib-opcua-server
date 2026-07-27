@@ -1,5 +1,30 @@
 <!-- Licensed under MIT - see LICENSE for full copyright notices. -->
 <script type="text/javascript">
+  // Converts an old-style nested {folder: {tagName: dataType}} dictionary
+  // (the hand-typed "Master Dictionary" pattern this node replaces) into
+  // this node's flat row format. Any dataType not in the known list falls
+  // back to "Double" rather than silently dropping the tag.
+  function opcuaTagDictionaryConvertNested(nested) {
+    const validTypes = ["Double", "Boolean", "Int16", "Int32", "String"];
+    const rows = [];
+
+    Object.keys(nested).forEach(function (folder) {
+      const tags = nested[folder];
+      if (!tags || typeof tags !== "object") {
+        return;
+      }
+      Object.keys(tags).forEach(function (tagName) {
+        let dataType = tags[tagName];
+        if (validTypes.indexOf(dataType) === -1) {
+          dataType = "Double";
+        }
+        rows.push({ folder: folder, tagName: tagName, dataType: dataType });
+      });
+    });
+
+    return rows;
+  }
+
   RED.nodes.registerType("opcua-tag-dictionary", {
     category: "OPC UA",
     color: "#c0deed",
@@ -69,6 +94,60 @@
       tags.forEach(function (tag) {
         $("#node-input-tag-container").editableList("addItem", tag);
       });
+
+      // Import from JSON - collapsed by default, since most edits are
+      // just tweaking a row or two, not a full re-import.
+      $("#node-tag-dictionary-import-toggle").on("click", function () {
+        $("#node-tag-dictionary-import-panel").toggle();
+      });
+
+      $("#node-tag-dictionary-import-button").on("click", function () {
+        const raw = $("#node-tag-dictionary-import-textarea").val().trim();
+        if (!raw) {
+          RED.notify("Paste a dictionary object first.", "warning");
+          return;
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (err) {
+          RED.notify(
+            "Could not parse as JSON: " + err.message,
+            { type: "error", timeout: 6000 }
+          );
+          return;
+        }
+
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          RED.notify(
+            "Expected an object like {\"FolderName\": {\"TagName\": \"Double\"}}.",
+            { type: "error", timeout: 6000 }
+          );
+          return;
+        }
+
+        const rows = opcuaTagDictionaryConvertNested(parsed);
+        if (rows.length === 0) {
+          RED.notify("No tags found in that object.", "warning");
+          return;
+        }
+
+        const replace = $("#node-tag-dictionary-import-replace").is(":checked");
+        if (replace) {
+          $("#node-input-tag-container").editableList("empty");
+        }
+        rows.forEach(function (row) {
+          $("#node-input-tag-container").editableList("addItem", row);
+        });
+
+        RED.notify(
+          "Imported " + rows.length + " tag(s) across " +
+            Object.keys(parsed).length + " folder(s).",
+          "success"
+        );
+        $("#node-tag-dictionary-import-textarea").val("");
+      });
     },
     oneditsave: function () {
       const rows = $("#node-input-tag-container").editableList("items");
@@ -111,6 +190,36 @@
     you want to force a refresh without redeploying).
   </div>
 
+  <div class="form-row">
+    <a href="#" id="node-tag-dictionary-import-toggle" style="font-size: 13px;">
+      <i class="fa fa-upload"></i> Import from JSON (e.g. an old hand-typed dictionary)
+    </a>
+  </div>
+  <div id="node-tag-dictionary-import-panel" style="display:none; margin-bottom: 10px;">
+    <div class="form-tips" style="margin-bottom: 6px;">
+      Paste an object shaped like
+      <code>{"FolderName": {"TagName": "Double", "OtherTag": "Boolean"}}</code>
+      - this is the same shape as the old hand-typed "Master Dictionary"
+      pattern. Unrecognized data types fall back to "Double" rather than
+      being dropped.
+    </div>
+    <textarea id="node-tag-dictionary-import-textarea" rows="8" style="width:100%; font-family:monospace; font-size:12px;" placeholder='{
+  "Machine1": {
+    "Speed": "Double",
+    "Running": "Boolean"
+  }
+}'></textarea>
+    <div style="margin-top: 6px;">
+      <label style="font-weight:normal;">
+        <input type="checkbox" id="node-tag-dictionary-import-replace" checked style="width:auto; vertical-align:middle;">
+        Replace existing rows (uncheck to add alongside what's already there)
+      </label>
+    </div>
+    <button type="button" id="node-tag-dictionary-import-button" class="red-ui-button" style="margin-top: 6px;">
+      <i class="fa fa-upload"></i> Import
+    </button>
+  </div>
+
   <div class="form-row node-input-rule-container-row">
     <ol id="node-input-tag-container"></ol>
   </div>
@@ -130,6 +239,10 @@
     convention <code>examples/opcua-blueprint-helper.js</code> reads from,
     so no other part of your flow needs to change when you add or edit
     tags here.
+  </p>
+  <p>
+    Migrating from an old hand-typed dictionary? Use "Import from JSON" to
+    paste the whole object in at once instead of re-typing every tag.
   </p>
   <h3>Inputs</h3>
   <p>
