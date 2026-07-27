@@ -1,9 +1,9 @@
 <!-- Licensed under MIT - see LICENSE for full copyright notices. -->
 <script type="text/javascript">
-  // Converts an old-style nested {folder: {tagName: dataType}} dictionary
-  // (the hand-typed "Master Dictionary" pattern this node replaces) into
-  // this node's flat row format. Any dataType not in the known list falls
-  // back to "Double" rather than silently dropping the tag.
+  /* Converts an old-style nested {folder: {tagName: dataType}} dictionary
+     (the hand-typed "Master Dictionary" pattern this node replaces) into
+     this node's flat row format. Any dataType not in the known list falls
+     back to "Double" rather than silently dropping the tag. */
   function opcuaTagDictionaryConvertNested(nested) {
     const validTypes = ["Double", "Boolean", "Int16", "Int32", "String"];
     const rows = [];
@@ -95,8 +95,8 @@
         $("#node-input-tag-container").editableList("addItem", tag);
       });
 
-      // Import from JSON - collapsed by default, since most edits are
-      // just tweaking a row or two, not a full re-import.
+      /* Import from JSON - collapsed by default, since most edits are
+         just tweaking a row or two, not a full re-import. */
       $("#node-tag-dictionary-import-toggle").on("click", function () {
         $("#node-tag-dictionary-import-panel").toggle();
       });
