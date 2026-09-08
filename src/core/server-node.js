@@ -211,6 +211,6 @@ module.exports = function (RED) {
     }
   );
 
-  RED.nodes.registerType("opcua-compact-server", OPCUACompactServerNode);
+  RED.nodes.registerType("opcua-compact-server-v2", OPCUACompactServerNode);
   RED.library.register("opcua");
 };

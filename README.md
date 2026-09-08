@@ -51,11 +51,15 @@ and HMI clients.
 This is a **maintained fork** of
 [`node-red-contrib-opcua-server`](https://github.com/BiancoRoyal/node-red-contrib-opcua-server)
 by Klaus Landsdorf / Bianco Royal, which has been marked deprecated and is
-no longer actively maintained upstream. The node type
-(`opcua-compact-server`) and configuration format are kept unchanged, so
-existing flows continue to work - while the fork focuses on fixing
+no longer actively maintained upstream. It continues that project as a new
+development line under new maintainership, focused on fixing
 production-stability issues and adding practical, deployment-focused
 features.
+
+The server node is registered under a new type - `opcua-compact-server-v2`
+- so it is distinct from the deprecated original and the two can be
+installed side by side. The configuration format is otherwise unchanged;
+see [Migrating from the original](#migrating-from-the-original) below.
 
 ## What's different from upstream
 
@@ -92,17 +96,26 @@ Run the following command in your Node-RED user directory - typically
     npm install node-red-contrib-opcua-compact-server
 
 Or install it from the Node-RED editor via **Manage palette &rarr;
-Install** and search for `opcua-compact-server`.
+Install** and search for `node-red-contrib-opcua-compact-server`.
 
 Try these options on npm install to build from source if you have problems
 installing:
 
     --unsafe-perm --build-from-source
 
-> Migrating from the original `node-red-contrib-opcua-server` package?
-> Uninstall that package first, then install this one. The node type
-> (`opcua-compact-server`) and configuration format are unchanged, so
-> existing flows should continue to work without modification.
+## Migrating from the original
+
+Coming from the deprecated `node-red-contrib-opcua-server` package? Install
+this package (it can sit alongside the original, since it registers a
+distinct node type). Because the server node type changed from
+`opcua-compact-server` to `opcua-compact-server-v2`, existing flows do
+**not** switch over automatically - Node-RED matches nodes to flows by
+type, so the old node will not become this one on its own.
+
+To migrate a flow, drop in a new **Compact-Server v2** node in place of
+each old server node and re-enter its configuration. Every configuration
+field is unchanged, so the settings map across one-to-one. Once every flow
+has been moved over, you can uninstall the original package.
 
 ## Getting started
 

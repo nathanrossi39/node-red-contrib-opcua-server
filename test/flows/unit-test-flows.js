@@ -4,7 +4,7 @@ module.exports = {
   serverFlow: helperExtensions.cleanFlowPositionData([
     {
       id: "nut1f1",
-      type: "opcua-compact-server",
+      type: "opcua-compact-server-v2",
       z: "f41e694a515fc633",
       port: 55881,
       endpoint: "",
@@ -61,7 +61,7 @@ module.exports = {
   serverFlow2: helperExtensions.cleanFlowPositionData([
     {
       id: "nut1f2",
-      type: "opcua-compact-server",
+      type: "opcua-compact-server-v2",
       z: "f41e694a515fc633",
       port: 55882,
       endpoint: "",
@@ -105,7 +105,7 @@ module.exports = {
   errorFlow: helperExtensions.cleanFlowPositionData([
     {
       id: "nut1f1",
-      type: "opcua-compact-server",
+      type: "opcua-compact-server-v2",
       z: "2e8c7f5c.ab73d",
       port: 55883,
       endpoint: "",

@@ -68,7 +68,7 @@ node-red -v
 
 ## 4. Replace each node's Address Space Script
 
-In each of your 5 `opcua-compact-server` nodes, replace the entire
+In each of your 5 `opcua-compact-server-v2` nodes, replace the entire
 "Address Space Script" field with the contents of
 `opcua-blueprint-node-script.js`. It should be **identical** across all
 5 nodes - the only thing that differs between them is the OPC UA port/

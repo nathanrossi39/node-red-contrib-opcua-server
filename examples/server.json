@@ -8,7 +8,7 @@
   },
   {
     "id": "4da8dd81.76c12c",
-    "type": "opcua-compact-server",
+    "type": "opcua-compact-server-v2",
     "z": "9d10f83b.2ea49",
     "port": "54855",
     "endpoint": "",

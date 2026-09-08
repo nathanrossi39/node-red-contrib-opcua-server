@@ -59,7 +59,7 @@
   },
   {
     "id": "ex02-server",
-    "type": "opcua-compact-server",
+    "type": "opcua-compact-server-v2",
     "z": "ex02-tab",
     "port": "4841",
     "endpoint": "",

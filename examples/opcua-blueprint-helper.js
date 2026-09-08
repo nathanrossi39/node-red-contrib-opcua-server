@@ -6,7 +6,7 @@
  *
  * WHY THIS EXISTS
  * ----------------
- * Each opcua-compact-server node's "Address Space Script" runs inside a
+ * Each opcua-compact-server-v2 node's "Address Space Script" runs inside a
  * small sandboxed vm context and is edited as a plain-text field in the
  * Node-RED editor - easy to break by accident, hard to version control,
  * and (if the exact same logic is duplicated across several nodes) easy
@@ -36,7 +36,7 @@
  *
  * 3. Restart Node-RED so settings.js is re-read.
  *
- * 4. In each opcua-compact-server node's "Address Space Script" field,
+ * 4. In each opcua-compact-server-v2 node's "Address Space Script" field,
  *    replace the whole script with the few-line bootstrap in
  *    opcua-blueprint-node-script.js (in this same examples/ folder).
  *

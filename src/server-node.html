@@ -2,7 +2,7 @@
     MIT License
     Copyright (c) 2018-2022 Klaus Landsdorf (http://node-red.plus/)
 -->
-<script type="text/x-red" data-help-name="opcua-compact-server">
+<script type="text/x-red" data-help-name="opcua-compact-server-v2">
   <h2>OPC UA Compact Server</h2>
 
   <p>The Compact Server node is an OPC UA server with a programmable address space to build your own information model.
@@ -45,9 +45,10 @@
 </script>
 
 <script type="text/javascript">
-  RED.nodes.registerType("opcua-compact-server", {
+  RED.nodes.registerType("opcua-compact-server-v2", {
     category: "opcua",
     color: "#20B2aa",
+    paletteLabel: "Compact-Server v2",
     defaults: {
       port: {
         value: 54840,
@@ -593,7 +594,7 @@
   });
 </script>
 
-<script type="text/x-red" data-template-name="opcua-compact-server">
+<script type="text/x-red" data-template-name="opcua-compact-server-v2">
   <div class="form-row">
       <ul style="background: #fff; min-width: 600px; margin-bottom: 20px;" id="node-input-server-tabs"></ul>
   </div>

@@ -1,116 +1,102 @@
 #!/usr/bin/env node
 "use strict";
 
-// This previously did `require('node-opcua-pki/bin/crypto_create_CA')`,
-// reaching directly into an internal file path of node-opcua-pki rather
-// than its declared public entry point. That works only as long as
-// node-opcua-pki doesn't declare a package.json "exports" map (which
-// restricts require()/import resolution to explicitly listed paths).
-// Newer releases of many packages, including this one, have started
-// adding "exports" maps, which makes deep-path requires like this throw
-// ERR_PACKAGE_PATH_NOT_EXPORTED - notably on Node 20+ where "exports"
-// enforcement is stricter. That has nothing to do with the Node.js
-// version itself; it depends on which node-opcua-pki version npm
-// resolves.
-//
-// Fixed by resolving node-opcua-pki's public main entry (always covered
-// by its "exports" map, since that's the "." export every package must
-// provide) and then spawning its bin script as a child process instead
-// of require()-ing it. Running a file directly via `node <path>` is
-// unaffected by the exports map - that only governs module resolution,
-// not process execution - so this is robust regardless of whether a
-// future node-opcua-pki version tightens its exports further.
-//
-// node-opcua-pki v6.x also restructured its CLI: the old dedicated
-// bin/crypto_create_CA.js demo-certificate generator was replaced with a
-// single unified bin/pki.mjs (ESM) CLI that takes an explicit 'demo'
-// subcommand - which is why this script is invoked as
-// `create_certificates.js demo --dev --silent -r ./certificates` rather
-// than the old `create_certificates.js --dev -s -r ./certificates`.
+/**
+ * Generates the self-signed demo certificate and private key this
+ * package uses by default, entirely in pure JavaScript - no OpenSSL
+ * installation required anywhere, on any platform.
+ *
+ * This replaces the previous approach of shelling out to node-opcua-pki's
+ * CLI (which itself shelled out to a system 'openssl' binary), which
+ * caused real, repeated friction deploying to Windows machines and
+ * locked-down/security-hardened servers where OpenSSL either wasn't
+ * present or couldn't be installed at all.
+ *
+ * node-opcua-pki (a dependency we already have) includes a genuine,
+ * documented pure-JS certificate generation path (its own source calls
+ * this the "without_openssl" toolbox) via CertificateManager's "native"
+ * backend, using node-opcua-crypto directly instead of shelling out to
+ * any external binary. This has been verified end-to-end against a real
+ * OPCUAServer and a real connecting OPCUAClient, with the openssl binary
+ * completely removed from the test system to confirm zero dependency on
+ * it - not just checked in isolation.
+ */
+
 const path = require("path");
 const fs = require("fs");
-const { spawnSync } = require("child_process");
+const os = require("os");
+const { CertificateManager } = require("node-opcua-pki");
+const { makeApplicationUrn } = require("node-opcua-common");
 
-function findPackageRoot(startDir) {
-  let dir = startDir;
-  for (let i = 0; i < 10; i++) {
-    const pkgJsonPath = path.join(dir, "package.json");
-    if (fs.existsSync(pkgJsonPath)) {
-      const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-      if (pkgJson.name === "node-opcua-pki") {
-        return dir;
-      }
-    }
-    const parentDir = path.dirname(dir);
-    if (parentDir === dir) {
-      break;
-    }
-    dir = parentDir;
-  }
-  throw new Error("Could not locate node-opcua-pki package root");
-}
-
-const pkiMainEntry = require.resolve("node-opcua-pki");
-const pkiPackageRoot = findPackageRoot(path.dirname(pkiMainEntry));
-const binScript = path.join(pkiPackageRoot, "dist", "bin", "pki.mjs");
-
-// The pki CLI shells out to the system's own 'openssl' binary to
-// actually generate certificates. Unlike most Linux distributions
-// (which ship OpenSSL by default), Windows does not - so on a fresh
-// Windows install this would otherwise fail deep inside node-opcua-pki
-// with a cryptic native/spawn error that gives no indication what's
-// actually missing or how to fix it. Check up front instead and give
-// clear, platform-specific guidance.
-const opensslCheck = spawnSync("openssl", ["version"], {
-  stdio: "pipe",
-  shell: process.platform === "win32",
-});
-
-if (opensslCheck.error || opensslCheck.status !== 0) {
-  console.error("");
-  console.error(
-    "ERROR: 'openssl' was not found on your PATH, but it's required to generate certificates."
-  );
-  console.error("");
-  if (process.platform === "win32") {
-    console.error("On Windows, install OpenSSL with one of:");
-    console.error(
-      "  - Git for Windows (bundles a usable openssl.exe): https://gitforwindows.org/"
-    );
-    console.error(
-      "  - Or a dedicated build: https://slproweb.com/products/Win32OpenSSL.html"
-    );
-    console.error(
-      "  - Or via a package manager: choco install openssl  (if you have Chocolatey)"
-    );
-    console.error(
-      "                              winget install ShiningLight.OpenSSL"
-    );
-    console.error(
-      "After installing, make sure openssl.exe's folder is added to your PATH,"
-    );
-    console.error("then open a new terminal and try again.");
-  } else {
-    console.error(
-      "On Linux, install it via your package manager, e.g.:"
-    );
-    console.error("  sudo apt-get install openssl   (Debian/Ubuntu/Raspberry Pi OS)");
-    console.error("  sudo yum install openssl       (RHEL/CentOS)");
-    console.error("On macOS: brew install openssl");
-  }
-  console.error("");
-  process.exit(1);
-}
-
-const result = spawnSync(
-  process.execPath,
-  [binScript, ...process.argv.slice(2)],
-  {
-    stdio: "inherit",
-  }
+const CERT_DIR = path.join(__dirname, "certificates");
+const KEY_SIZE = 2048;
+const CERT_FILE = path.join(
+  CERT_DIR,
+  "server_selfsigned_cert_" + KEY_SIZE + ".pem"
 );
+const KEY_FILE = path.join(CERT_DIR, "server_key_" + KEY_SIZE + ".pem");
 
-if (result.error) {
-  throw result.error;
+async function generateServerCertificate() {
+  fs.mkdirSync(CERT_DIR, { recursive: true });
+
+  const hostname = os.hostname();
+  // Matches node-opcua-server's own default applicationUri exactly
+  // (base_server.js: makeApplicationUrn(os.hostname(), "NodeOPCUA-Server"))
+  // so a server using this certificate with its own default
+  // applicationUri (i.e. not overriding it) won't get a subjectAltName
+  // mismatch warning.
+  const applicationUri = makeApplicationUrn(hostname, "NodeOPCUA-Server");
+
+  // Scratch working directory for CertificateManager's own private-key
+  // bookkeeping. The actual output files this package uses are written
+  // to CERT_FILE/KEY_FILE below, copied out of this scratch area - so
+  // this location is an implementation detail, not something anything
+  // else in this package should ever read from directly.
+  const pkiScratchDir = path.join(CERT_DIR, ".pki");
+
+  const certManager = new CertificateManager({
+    location: pkiScratchDir,
+    keySize: KEY_SIZE,
+  });
+  await certManager.initialize();
+
+  await certManager.createSelfSignedCertificate({
+    applicationUri: applicationUri,
+    dns: [hostname],
+    ip: [],
+    subject: "CN=" + hostname,
+    startDate: new Date(),
+    validity: 365 * 5, // 5 years
+    outputFile: CERT_FILE,
+  });
+
+  fs.copyFileSync(certManager.privateKey, KEY_FILE);
 }
-process.exitCode = result.status === null ? 1 : result.status;
+
+async function main() {
+  if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
+    console.log(
+      "Certificate and private key already exist - skipping generation."
+    );
+    console.log("  Certificate:", CERT_FILE);
+    console.log("  Private key:", KEY_FILE);
+    console.log(
+      "Delete these files (or the whole certificates/ folder) to force regeneration."
+    );
+    return;
+  }
+
+  console.log(
+    "Generating self-signed demo certificate (pure JavaScript, no OpenSSL required)..."
+  );
+  await generateServerCertificate();
+  console.log("Done.");
+  console.log("  Certificate:", CERT_FILE);
+  console.log("  Private key:", KEY_FILE);
+}
+
+main().catch((err) => {
+  console.error("ERROR generating certificate:", err.message);
+  console.error(err.stack);
+  process.exit(1);
+});

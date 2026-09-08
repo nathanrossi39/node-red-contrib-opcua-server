@@ -4,7 +4,7 @@ module.exports = {
   serverFlow: helperExtensions.cleanFlowPositionData([
     {
       id: "0397425415db6872",
-      type: "opcua-compact-server",
+      type: "opcua-compact-server-v2",
       z: "f41e694a515fc633",
       port: 54840,
       endpoint: "",
