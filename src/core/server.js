@@ -233,14 +233,20 @@ module.exports = {
         maxHistoryContinuationPoints: module.exports.toPositiveIntOrUndefined(
           node.maxHistoryContinuationPoints
         ),
+        // The session limit belongs here as serverCapabilities.maxSessions.
+        // node-opcua deprecated the old top-level maxAllowedSessionNumber
+        // option (it now emits a warning and auto-maps to this), so we set
+        // it directly in its supported location instead of relying on the
+        // deprecation shim.
+        maxSessions: module.exports.toPositiveIntOrUndefined(
+          node.maxAllowedSessionNumber
+        ),
         // Newer node-opcua versions dropped compatibility support for the
-        // top-level maxAllowedSubscriptionNumber option (unlike
-        // maxAllowedSessionNumber, which still has a deprecation shim -
-        // see the top-level maxAllowedSessionNumber option below). Without
-        // this, node-opcua silently falls back to its own hardcoded
-        // default of 10 subscriptions per session, regardless of what's
-        // configured on the node - which can break real OPC UA clients
-        // that legitimately open more than 10 subscriptions.
+        // top-level maxAllowedSubscriptionNumber option. Without this,
+        // node-opcua silently falls back to its own hardcoded default of
+        // 10 subscriptions per session, regardless of what's configured on
+        // the node - which can break real OPC UA clients that legitimately
+        // open more than 10 subscriptions.
         maxSubscriptionsPerSession: module.exports.toPositiveIntOrUndefined(
           node.maxAllowedSubscriptionNumber
         ),
@@ -268,11 +274,6 @@ module.exports = {
         discoveryUrls: [],
       },
       alternateHostname: node.alternateHostname,
-      // still supported directly by node-opcua (with a deprecation
-      // warning - it auto-maps to serverCapabilities.maxSessions)
-      maxAllowedSessionNumber: module.exports.toPositiveIntOrUndefined(
-        node.maxAllowedSessionNumber
-      ),
       maxConnectionsPerEndpoint: module.exports.toPositiveIntOrUndefined(
         node.maxConnectionsPerEndpoint
       ),

@@ -231,24 +231,27 @@ describe("core.server unit testing", function () {
 
     it("should map maxAllowedSubscriptionNumber to serverCapabilities.maxSubscriptionsPerSession", function () {
       // Newer node-opcua versions dropped the compatibility shim for the
-      // top-level maxAllowedSubscriptionNumber option (unlike
-      // maxAllowedSessionNumber, which still auto-maps with a deprecation
-      // warning). Without this explicit mapping, node-opcua silently
-      // falls back to its own hardcoded default of 10 subscriptions per
-      // session regardless of what's configured - which breaks real OPC
-      // UA clients that legitimately open more than 10 subscriptions.
+      // top-level maxAllowedSubscriptionNumber option. Without this explicit
+      // mapping, node-opcua silently falls back to its own hardcoded default
+      // of 10 subscriptions per session regardless of what's configured -
+      // which breaks real OPC UA clients that legitimately open more than 10
+      // subscriptions.
       const node = makeNode({ maxAllowedSubscriptionNumber: 200 });
       const options = coreServer.defaultServerOptions(node);
       expect(options.serverCapabilities.maxSubscriptionsPerSession).toBe(200);
     });
 
-    it("should still set the top-level maxAllowedSessionNumber and maxConnectionsPerEndpoint options", function () {
+    it("should map maxAllowedSessionNumber to serverCapabilities.maxSessions and set maxConnectionsPerEndpoint", function () {
+      // node-opcua deprecated the top-level maxAllowedSessionNumber option
+      // (it now warns and auto-maps to serverCapabilities.maxSessions), so
+      // we set it directly in its supported location.
       const node = makeNode({
         maxAllowedSessionNumber: 30,
         maxConnectionsPerEndpoint: 40,
       });
       const options = coreServer.defaultServerOptions(node);
-      expect(options.maxAllowedSessionNumber).toBe(30);
+      expect(options.serverCapabilities.maxSessions).toBe(30);
+      expect(options.maxAllowedSessionNumber).toBe(undefined);
       expect(options.maxConnectionsPerEndpoint).toBe(40);
     });
 
