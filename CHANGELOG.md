@@ -1,3 +1,14 @@
+# Changelog
+
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+### [2.1.1](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.0.1...v2.1.1) (2026-09-16)
+
+
+### Features
+
+* auto-load address-space helper from a fixed location, hide the path field ([f90f40d](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/f90f40d82fd604567d0ce49aa02e30a569a9b26e))
+
 ## [2.0.1](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.0.0...v2.0.1) (2026-09-09)
 
 > The 2.0.0 npm release inadvertently shipped without the two changes below;
