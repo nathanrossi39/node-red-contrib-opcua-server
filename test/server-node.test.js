@@ -42,14 +42,21 @@ describe("OPC UA Flex-Server node e2e Testing", function () {
     helper
       .unload()
       .then(function () {
-        helper.stopServer(function () {
-          done();
-        });
+        // Give node-opcua time to gracefully release resources in CI
+        // before stopping the Node-RED server instance
+        setTimeout(() => {
+          helper.stopServer(function () {
+            done();
+          });
+        }, 1500);
       })
       .catch(function () {
-        helper.stopServer(function () {
-          done();
-        });
+        // Apply the same delay on catch
+        setTimeout(() => {
+          helper.stopServer(function () {
+            done();
+          });
+        }, 1500);
       });
   });
 
@@ -62,7 +69,8 @@ describe("OPC UA Flex-Server node e2e Testing", function () {
           console.log(err);
         });
         n1.on("server_running", () => {
-          done();
+          // Allow CI environments time to settle background tasks
+          setTimeout(done, 1000);
         });
       });
     });
@@ -100,7 +108,11 @@ describe("OPC UA Flex-Server node e2e Testing", function () {
             .request()
             .get("/OPCUA/compact/xmlsets/public")
             .expect(200)
-            .end(done);
+            .end((err) => {
+              if (err) return done(err);
+              // Allow a small CI settle buffer before teardown
+              setTimeout(done, 1000);
+            });
         };
         n1.on("server_running", runAssertion);
         n1.on("server_start_error", runAssertion);
@@ -113,7 +125,8 @@ describe("OPC UA Flex-Server node e2e Testing", function () {
         expect(n1.name).toBe("opcua-compact-server-node");
         n1.on("server_start_error", (err) => {
           console.log(err);
-          done();
+          // Wait briefly before proceeding to teardown
+          setTimeout(done, 1000);
         });
         n1.on("server_node_error", (err) => {
           console.log(err);
