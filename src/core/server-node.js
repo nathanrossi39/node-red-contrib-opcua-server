@@ -54,29 +54,46 @@ module.exports = function (RED) {
       // normal Node.js module resolution applies - the module can itself
       // require() anything it needs normally.
       //
-      // The location is fixed and resolved automatically from Node-RED's
-      // own user directory: <userDir>/lib/opcua-blueprint-helper.js. That
-      // is correct on both Windows and Linux with no hardcoded drive
-      // letters or usernames, and is exactly where deploy.sh installs the
-      // helper - so there is nothing for the user to enter (the old
-      // "External Helper Module" path field is now hidden). A path saved
-      // on a legacy flow is still honored as an explicit override.
+      // The location is resolved automatically, in this order:
+      //   1. An explicit path saved on the node (legacy override), if any.
+      //   2. <Node-RED userDir>/lib/opcua-blueprint-helper.js - the
+      //      user-customizable location (deploy.sh installs it here). Edit
+      //      that copy to customize behavior across all nodes.
+      //   3. The copy bundled with this package (examples/), so a plain
+      //      install works out of the box with no manual file copying and
+      //      the `addressSpaceHelper` global is always defined.
+      // Correct on both Windows and Linux with no hardcoded drive letters
+      // or usernames - so there is nothing for the user to enter (the old
+      // "External Helper Module" path field is now hidden).
       let addressSpaceHelperModule;
       const path = require("path");
       const fs = require("fs");
       const configuredHelperPath = (
         nodeConfig.addressSpaceHelperModule || ""
       ).trim();
-      const defaultHelperPath = path.join(
+      const userLibHelperPath = path.join(
         RED.settings.userDir || process.cwd(),
         "lib",
         "opcua-blueprint-helper.js"
       );
-      const helperModulePath = configuredHelperPath || defaultHelperPath;
-      // When falling back to the default location and no helper file is
-      // present, the feature is simply inactive - stay silent rather than
-      // logging an error on every server node that doesn't use it. An
-      // explicitly configured path that fails to load is always reported.
+      const bundledHelperPath = path.join(
+        __dirname,
+        "..",
+        "examples",
+        "opcua-blueprint-helper.js"
+      );
+      let helperModulePath = configuredHelperPath;
+      if (!helperModulePath) {
+        // Prefer the user's own copy under lib/ if present, otherwise fall
+        // back to the copy bundled with the package.
+        helperModulePath = fs.existsSync(userLibHelperPath)
+          ? userLibHelperPath
+          : bundledHelperPath;
+      }
+      // A path is always resolved now (the bundled copy is the final
+      // fallback), so a load failure is a real problem worth reporting -
+      // except a genuinely missing file at a non-configured location, which
+      // just leaves the feature inactive.
       if (configuredHelperPath || fs.existsSync(helperModulePath)) {
         try {
           addressSpaceHelperModule = require(helperModulePath);

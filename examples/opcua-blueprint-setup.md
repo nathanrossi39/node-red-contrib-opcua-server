@@ -16,12 +16,18 @@ This moves the OPC UA address-space-building logic out of each node's
 never need to change - adding or changing tags only ever means editing
 your blueprint data.
 
-## 1. Place the helper file
+## 1. Place the helper file (optional)
 
-The server node loads the helper automatically from a **fixed location** in
-your Node-RED user directory: `<userDir>/lib/opcua-blueprint-helper.js`.
-This resolves correctly on both Linux and Windows with no path to type, so
-just copy the file to exactly that location.
+**You usually don't need to do anything here.** A copy of
+`opcua-blueprint-helper.js` ships inside the package, and the server node
+loads it automatically - so the blueprint works out of the box on a plain
+install.
+
+Only place your own copy if you want to **customize** the helper. The node
+looks in your Node-RED user directory first:
+`<userDir>/lib/opcua-blueprint-helper.js`. If a file exists there it is used
+instead of the bundled copy; otherwise the bundled copy is used. This
+resolves correctly on both Linux and Windows with no path to type.
 
 Linux / macOS:
 
