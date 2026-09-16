@@ -2,25 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-### [2.1.1](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.0.1...v2.1.1) (2026-09-16)
+### [2.1.2](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.1...v2.1.2) (2026-09-16)
+
+
+### Features
+
+* default new nodes to the working blueprint address-space script ([09746eb](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/09746ebff12682715766d4ff1d00f780822691ca))
+
+## [2.1.1](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.0.1...v2.1.1) (2026-09-16)
 
 
 ### Features
 
 * auto-load address-space helper from a fixed location, hide the path field ([f90f40d](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/f90f40d82fd604567d0ce49aa02e30a569a9b26e))
 
+
+
 ## [2.0.1](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.0.0...v2.0.1) (2026-09-09)
 
-> The 2.0.0 npm release inadvertently shipped without the two changes below;
-> 2.0.1 delivers them. No user action is required beyond updating.
-
-### Bug Fixes
-
-* use serverCapabilities.maxSessions instead of the deprecated top-level maxAllowedSessionNumber server option - the node's editor config field is unchanged, so existing saved settings keep working ([fdb0d90](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/fdb0d90))
-
-### Dependencies
-
-* bump node-opcua to ^2.182.0 and debug to ^4.4.3 (clears the Node-RED Flow Library "dependencies use latest versions" warning) ([54654c7](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/54654c7))
 
 
 # [2.0.0](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/4091b604e4e34a582864a47b42630861b1742d3b...v2.0.0) (2026-09-08)
@@ -77,6 +76,3 @@ All notable changes to this project will be documented in this file. See [standa
 ### BREAKING CHANGES
 
 * the server node type changed from opcua-compact-server to opcua-compact-server-v2. Existing flows must replace the old node with the new Compact-Server v2 node (config fields are unchanged).
-
-
-
