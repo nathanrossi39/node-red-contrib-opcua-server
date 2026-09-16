@@ -82,11 +82,28 @@ describe("OPC UA Flex-Server node e2e Testing", function () {
 
     it("should success on XMl Nodesets request", function (done) {
       helper.load(serverTestNodes, flows.serverFlow2, function () {
-        helper
-          .request()
-          .get("/OPCUA/compact/xmlsets/public")
-          .expect(200)
-          .end(done);
+        const n1 = helper.getNode("nut1f2");
+        // The /OPCUA/compact/xmlsets/public admin route is available as soon
+        // as the node module loads and does not need the server running - but
+        // we still wait for the server node to reach a settled state
+        // (server_running or server_start_error) before ending the test.
+        // Otherwise afterEach unloads and disposes the OPCUA server while its
+        // async address-space initialization is still in flight, which trips
+        // node-opcua's known internal "Internal error" (server_engine.ts) as
+        // an unhandled rejection. Because that rejection surfaces
+        // asynchronously, Jest attributes it to whatever test happens to be
+        // running next - the cross-test flake that gets worse on slower
+        // hardware. Waiting here keeps this test's server from leaking into
+        // the others.
+        const runAssertion = () => {
+          helper
+            .request()
+            .get("/OPCUA/compact/xmlsets/public")
+            .expect(200)
+            .end(done);
+        };
+        n1.on("server_running", runAssertion);
+        n1.on("server_start_error", runAssertion);
       });
     });
 
