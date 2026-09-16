@@ -92,7 +92,7 @@
     "delayToClose": "200",
     "serverShutdownTimeout": "100",
     "namespaceUri": "http://node-red/ua-server-example",
-    "addressSpaceHelperModule": "/CHANGE-ME/opcua-blueprint-helper.js",
+    "addressSpaceHelperModule": "",
     "addressSpaceScript": "function constructAddressSpaceScript(server, addressSpace, eventObjects, done) {\n  addressSpaceHelper.buildBlueprintAddressSpace(\n    server,\n    addressSpace,\n    eventObjects,\n    done,\n    node,\n    sandboxFlowContext,\n    coreServer.choreCompact.opcua,\n    {\n      namespaceUri: node.namespaceUri,\n      staleDataThresholdMs: 10000,\n      staleDataStatusCode: \"BadNoCommunication\"\n    }\n  );\n}",
     "x": 480,
     "y": 320,

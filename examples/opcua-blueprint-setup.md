@@ -5,10 +5,10 @@
 fresh Node-RED tab - it's a complete, self-contained example with a
 built-in data simulator (no MQTT or other infrastructure needed), wiring
 together the blueprint helper, the Namespace URI field, and Bad-quality
-tag flagging. It only needs one change before deploying: update the
-"External Helper Module" path in the server node to wherever you save
-`opcua-blueprint-helper.js` on your own system. Verified end-to-end with
-a real connected OPC UA client reading live values.
+tag flagging. The only prerequisite is placing the helper file (step 1
+below) - the server node loads it automatically from your Node-RED user
+directory, so there is no path to enter anywhere. Verified end-to-end
+with a real connected OPC UA client reading live values.
 
 This moves the OPC UA address-space-building logic out of each node's
 "Address Space Script" textarea and into a real, shared, version-controlled
@@ -18,13 +18,28 @@ your blueprint data.
 
 ## 1. Place the helper file
 
-Copy `opcua-blueprint-helper.js` somewhere in your Node-RED user directory,
-e.g.:
+The server node loads the helper automatically from a **fixed location** in
+your Node-RED user directory: `<userDir>/lib/opcua-blueprint-helper.js`.
+This resolves correctly on both Linux and Windows with no path to type, so
+just copy the file to exactly that location.
+
+Linux / macOS:
 
 ```bash
 mkdir -p ~/.node-red/lib
 cp opcua-blueprint-helper.js ~/.node-red/lib/
 ```
+
+Windows (default user directory):
+
+```powershell
+mkdir "$env:USERPROFILE\.node-red\lib" -Force
+copy opcua-blueprint-helper.js "$env:USERPROFILE\.node-red\lib\"
+```
+
+> If your Node-RED runs with a non-default user directory, use that
+> directory's `lib/` folder instead - the node reads Node-RED's own
+> `userDir` setting, so it always looks in the right place.
 
 ## 2. Wire it up in settings.js
 

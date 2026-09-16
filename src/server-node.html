@@ -780,13 +780,12 @@
           <div class="form-tips" style="margin-bottom: 8px;">
               <span data-i18n="opcua-compact-contrib.label.namespaceUriTip"></span>
           </div>
-          <div class="form-row">
-              <label for="node-input-addressSpaceHelperModule" style="width:50%;"><i class="fa fa-file-code-o"></i> <span data-i18n="opcua-compact-contrib.label.addressSpaceHelperModule"></span></label>
-              <input type="text" id="node-input-addressSpaceHelperModule" placeholder="/home/pi/.node-red/lib/my-helper.js" style="width:50%;">
-          </div>
-          <div class="form-tips" style="margin-bottom: 8px;">
-              <span data-i18n="opcua-compact-contrib.label.addressSpaceHelperModuleTip"></span>
-          </div>
+          <!-- The address-space helper module is now loaded automatically
+               from <Node-RED user dir>/lib/opcua-blueprint-helper.js, so
+               the location is fixed per environment and no longer shown or
+               editable. This hidden input is kept only so existing saved
+               configurations round-trip unchanged. -->
+          <input type="hidden" id="node-input-addressSpaceHelperModule">
           <div class="form-row" style="margin-bottom: 0px;">
               <label for="node-input-addressSpaceScript" style="width:50%;"><i class="fa fa-wrench"></i> <span data-i18n="opcua-compact-contrib.label.function"></span></label>
               <input type="hidden" id="node-input-addressSpaceScript">

@@ -47,24 +47,42 @@ module.exports = function (RED) {
 
       opcuaServer = coreServer.initialize(node, opcuaServerOptions);
 
-      // Optional: load an external JS module and expose it to the
-      // address-space script as a sandbox global, without requiring any
-      // settings.js/functionGlobalContext configuration. Loaded here in
-      // trusted backend code (not inside the vm sandbox), so normal
-      // Node.js module resolution applies - the module can itself
-      // require() anything it needs normally. Left empty by default;
-      // existing address-space scripts that don't reference it are
-      // completely unaffected.
+      // Load the shared address-space helper module and expose it to the
+      // address-space script as the `addressSpaceHelper` sandbox global,
+      // with no settings.js/functionGlobalContext configuration. Loaded
+      // here in trusted backend code (not inside the vm sandbox), so
+      // normal Node.js module resolution applies - the module can itself
+      // require() anything it needs normally.
+      //
+      // The location is fixed and resolved automatically from Node-RED's
+      // own user directory: <userDir>/lib/opcua-blueprint-helper.js. That
+      // is correct on both Windows and Linux with no hardcoded drive
+      // letters or usernames, and is exactly where deploy.sh installs the
+      // helper - so there is nothing for the user to enter (the old
+      // "External Helper Module" path field is now hidden). A path saved
+      // on a legacy flow is still honored as an explicit override.
       let addressSpaceHelperModule;
-      const helperModulePath = (
+      const path = require("path");
+      const fs = require("fs");
+      const configuredHelperPath = (
         nodeConfig.addressSpaceHelperModule || ""
       ).trim();
-      if (helperModulePath) {
+      const defaultHelperPath = path.join(
+        RED.settings.userDir || process.cwd(),
+        "lib",
+        "opcua-blueprint-helper.js"
+      );
+      const helperModulePath = configuredHelperPath || defaultHelperPath;
+      // When falling back to the default location and no helper file is
+      // present, the feature is simply inactive - stay silent rather than
+      // logging an error on every server node that doesn't use it. An
+      // explicitly configured path that fails to load is always reported.
+      if (configuredHelperPath || fs.existsSync(helperModulePath)) {
         try {
           addressSpaceHelperModule = require(helperModulePath);
         } catch (err) {
           node.error(
-            "Could not load External Helper Module '" +
+            "Could not load address-space helper module '" +
               helperModulePath +
               "': " +
               err.message
