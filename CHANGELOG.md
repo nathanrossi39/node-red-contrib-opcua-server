@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.3](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.2...v2.1.3) (2026-09-17)
+
+
+### Bug Fixes
+
+* bundled blueprint helper fallback so new installs work out of the box ([48516b2](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/48516b2a0cf8873e9917f0f8785fdef3d05c9b65))
+
 ### [2.1.2](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.1...v2.1.2) (2026-09-16)
 
 
