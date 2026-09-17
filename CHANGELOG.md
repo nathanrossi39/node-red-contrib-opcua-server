@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.5](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.4...v2.1.5) (2026-09-17)
+
+
+### Bug Fixes
+
+* default new server nodes to discovery off ([16a8a41](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/16a8a41dd901e353d439245320c62fc7c0bbd681))
+
 ### [2.1.4](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.3...v2.1.4) (2026-09-17)
 
 
