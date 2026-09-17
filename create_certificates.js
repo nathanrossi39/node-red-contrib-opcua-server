@@ -36,6 +36,47 @@ const CERT_FILE = path.join(
 );
 const KEY_FILE = path.join(CERT_DIR, "server_key_" + KEY_SIZE + ".pem");
 
+// Collect every hostname and IP address this server may be reached by, so
+// they all go into the certificate's Subject Alternative Name (SAN).
+// node-opcua advertises the machine's fully-qualified domain name (FQDN) in
+// its endpoints; if the cert's SAN doesn't list it, strict OPC UA clients
+// reject the connection and node-opcua logs
+// "NODE-OPCUA-W26 Certificate SAN is missing ...". Including the FQDN
+// (resolved exactly the way node-opcua resolves it), the short hostname,
+// localhost, and all local IPs makes the cert match however a client
+// addresses the server - by name or by IP.
+async function collectSubjectAltNames(hostname) {
+  const dnsNames = new Set([hostname, "localhost"]);
+  try {
+    const {
+      extractFullyQualifiedDomainName,
+    } = require("node-opcua-hostname");
+    const fqdn = await extractFullyQualifiedDomainName();
+    if (fqdn) {
+      dnsNames.add(fqdn);
+    }
+  } catch (err) {
+    // node-opcua-hostname unavailable or the FQDN could not be resolved -
+    // the short hostname (added above) still covers the common case.
+  }
+
+  const ipAddresses = new Set(["127.0.0.1", "::1"]);
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface && !iface.internal && iface.address) {
+        // strip any IPv6 zone index, e.g. "fe80::1%eth0"
+        ipAddresses.add(iface.address.split("%")[0]);
+      }
+    }
+  }
+
+  return {
+    dns: Array.from(dnsNames).filter(Boolean),
+    ip: Array.from(ipAddresses),
+  };
+}
+
 async function generateServerCertificate() {
   fs.mkdirSync(CERT_DIR, { recursive: true });
 
@@ -43,9 +84,12 @@ async function generateServerCertificate() {
   // Matches node-opcua-server's own default applicationUri exactly
   // (base_server.js: makeApplicationUrn(os.hostname(), "NodeOPCUA-Server"))
   // so a server using this certificate with its own default
-  // applicationUri (i.e. not overriding it) won't get a subjectAltName
+  // applicationUri (i.e. not overriding it) won't get an applicationUri
   // mismatch warning.
   const applicationUri = makeApplicationUrn(hostname, "NodeOPCUA-Server");
+
+  const { dns: dnsNames, ip: ipAddresses } =
+    await collectSubjectAltNames(hostname);
 
   // Scratch working directory for CertificateManager's own private-key
   // bookkeeping. The actual output files this package uses are written
@@ -62,8 +106,8 @@ async function generateServerCertificate() {
 
   await certManager.createSelfSignedCertificate({
     applicationUri: applicationUri,
-    dns: [hostname],
-    ip: [],
+    dns: dnsNames,
+    ip: ipAddresses,
     subject: "CN=" + hostname,
     startDate: new Date(),
     validity: 365 * 5, // 5 years
@@ -71,6 +115,8 @@ async function generateServerCertificate() {
   });
 
   fs.copyFileSync(certManager.privateKey, KEY_FILE);
+
+  return { dns: dnsNames, ip: ipAddresses };
 }
 
 async function main() {
@@ -89,10 +135,12 @@ async function main() {
   console.log(
     "Generating self-signed demo certificate (pure JavaScript, no OpenSSL required)..."
   );
-  await generateServerCertificate();
+  const san = await generateServerCertificate();
   console.log("Done.");
   console.log("  Certificate:", CERT_FILE);
   console.log("  Private key:", KEY_FILE);
+  console.log("  SAN DNS names:", san.dns.join(", "));
+  console.log("  SAN IP addresses:", san.ip.join(", "));
 }
 
 main().catch((err) => {
