@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.4](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.3...v2.1.4) (2026-09-17)
+
+
+### Bug Fixes
+
+* include FQDN and all local IPs in the self-signed certificate SAN ([f0841a3](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/f0841a3715063a9933744fa871b8ea1da06436a1))
+
 ### [2.1.3](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.2...v2.1.3) (2026-09-17)
 
 
