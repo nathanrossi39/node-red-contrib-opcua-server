@@ -27,8 +27,16 @@ function docIcons () {
   return src('src/icons/**/*').pipe(dest('docs/gen/icons'))
 }
 
-function docImages () {
-  return src('images/**/*').pipe(dest('docs/gen/images'))
+function docImages (done) {
+  // The images/ folder is optional (docs-site assets only) and is not part
+  // of a fresh checkout, so skip this step cleanly rather than erroring with
+  // ENOENT when it is absent - it is irrelevant to building/deploying the
+  // package itself.
+  const fs = require('fs')
+  if (!fs.existsSync('images')) {
+    return done()
+  }
+  return src('images/**/*', { allowEmpty: true }).pipe(dest('docs/gen/images'))
 }
 
 function releaseLocal () {
