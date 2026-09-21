@@ -336,10 +336,44 @@ function buildBlueprintAddressSpace(
                 });
               },
               set: function (variant) {
+                const key = folderName + "." + shortTagName;
+                const newValue = variant.value;
+
+                // Make the write take effect on the tag's read-back value.
+                // timestamped_get above reads from cachedData, so update it
+                // for an immediate effect - but cachedData is replaced from
+                // the live-data flow context on every refresh tick, so also
+                // write the value into that context (opts.dataContextKey) so
+                // it survives the next refresh. Without this, a client write
+                // succeeds but a subsequent read still returns the old value.
+                cachedData[key] = newValue;
+                try {
+                  const liveData =
+                    sandboxFlowContext.get(
+                      opts.dataContextKey,
+                      opts.dataContextStore
+                    ) || {};
+                  liveData[key] = newValue;
+                  sandboxFlowContext.set(
+                    opts.dataContextKey,
+                    liveData,
+                    opts.dataContextStore
+                  );
+                } catch (err) {
+                  node.warn(
+                    "Could not persist OPC UA write for '" +
+                      key +
+                      "' to flow context: " +
+                      err.message
+                  );
+                }
+
+                // Forward the write to the flow as well, so downstream logic
+                // (e.g. writing the value out to a PLC/device) can act on it.
                 node.send({
                   topic: "WriteRequest",
-                  tagName: folderName + "." + shortTagName,
-                  payload: variant.value,
+                  tagName: key,
+                  payload: newValue,
                 });
                 return opcua.StatusCodes.Good;
               },
