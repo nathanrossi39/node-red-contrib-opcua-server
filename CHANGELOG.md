@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.6](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.5...v2.1.6) (2026-09-21)
+
+
+### Bug Fixes
+
+* OPC UA writes now update the tag's read-back value ([ea53e83](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/ea53e83dd4bc1dcfff23c3bc6e14d759f369a217))
+
 ### [2.1.5](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.4...v2.1.5) (2026-09-17)
 
 
