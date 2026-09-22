@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.2.0](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.6...v2.2.0) (2026-09-22)
+
+
+### Features
+
+* per-tag nested folder paths, drop the fixed folder prefix ([d3dcf3b](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/d3dcf3b95b243ba02cc911896a741e01a0e72dbc))
+
+
+### Bug Fixes
+
+* skip docImages gulp step when the optional images/ folder is absent ([d480b05](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/d480b05925f78602a41046fa880d09f77291e60a))
+
 ### [2.1.6](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.5...v2.1.6) (2026-09-21)
 
 
