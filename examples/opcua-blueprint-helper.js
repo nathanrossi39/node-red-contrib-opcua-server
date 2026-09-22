@@ -93,8 +93,11 @@
  * @param {string} [options.dataContextKey="OpcData"] - flow context key holding live tag values
  * @param {string} [options.dataContextStore="memoryOnly"] - flow context store name for live data
  * @param {string} [options.namespaceUri="http://node-red/ua-server"] - OPC UA namespace URI
- * @param {string} [options.rootFolderName="Simulation Examples"] - top-level folder name
- * @param {string} [options.functionsFolderName="Functions"] - sub-folder name under the root folder
+ * @param {string} [options.rootFolderName=""] - optional fixed top-level folder above every tag's
+ *   own folder path; empty (default) means tag folders sit directly under Objects
+ * @param {string} [options.functionsFolderName=""] - optional fixed second-level folder under
+ *   rootFolderName; empty (default) means it is omitted. Each tag's own "folder" value may itself
+ *   be a "/"-separated path (e.g. "Plant/Line1/Machine1") that becomes nested folders.
  * @param {number} [options.dataRefreshIntervalMs=200] - how often to re-read live data from context
  * @param {number} [options.statusUpdateIntervalMs=3000] - how often to refresh the node's status text
  * @param {number} [options.maxRetries=30] - how many times to poll for the blueprint before giving up
@@ -128,8 +131,8 @@ function buildBlueprintAddressSpace(
       dataContextKey: "OpcData",
       dataContextStore: "memoryOnly",
       namespaceUri: "http://node-red/ua-server",
-      rootFolderName: "Simulation Examples",
-      functionsFolderName: "Functions",
+      rootFolderName: "",
+      functionsFolderName: "",
       dataRefreshIntervalMs: 200,
       statusUpdateIntervalMs: 3000,
       maxRetries: 30,
@@ -209,12 +212,42 @@ function buildBlueprintAddressSpace(
     try {
       const namespace = addressSpace.registerNamespace(opts.namespaceUri);
       const rootFolder = addressSpace.findNode("RootFolder");
-      const simFolder = namespace.addFolder(rootFolder.objects, {
-        browseName: opts.rootFolderName,
-      });
-      const funcFolder = namespace.addFolder(simFolder, {
-        browseName: opts.functionsFolderName,
-      });
+      const objectsFolder = rootFolder.objects;
+
+      // Optional fixed prefix above the per-tag folder paths. Empty by
+      // default, so tag folders sit directly under Objects. Set
+      // rootFolderName / functionsFolderName to add one or two fixed levels.
+      const prefixSegments = [opts.rootFolderName, opts.functionsFolderName]
+        .map(function (s) {
+          return (s || "").trim();
+        })
+        .filter(function (s) {
+          return s.length > 0;
+        });
+
+      // Each tag's "folder" value may be a "/"-separated path (e.g.
+      // "Plant/Line1/Machine1"), so build the folder tree one segment at a
+      // time and cache every created folder by its full dotted path. Shared
+      // parent paths across tags then reuse the same folder object instead
+      // of being recreated (which node-opcua rejects as a duplicate).
+      const folderCache = new Map();
+
+      function ensureFolder(segments) {
+        if (segments.length === 0) {
+          return objectsFolder;
+        }
+        const key = segments.join(".");
+        const existing = folderCache.get(key);
+        if (existing) {
+          return existing;
+        }
+        const parent = ensureFolder(segments.slice(0, -1));
+        const folder = namespace.addFolder(parent, {
+          browseName: segments[segments.length - 1],
+        });
+        folderCache.set(key, folder);
+        return folder;
+      }
 
       const folderNames = Object.keys(blueprint);
       const totalFolders = folderNames.length;
@@ -269,22 +302,28 @@ function buildBlueprintAddressSpace(
       for (let i = 0; i < totalFolders; i++) {
         const folderName = folderNames[i];
         const tagsInFolder = blueprint[folderName];
-        const currentFolder = namespace.addFolder(funcFolder, {
-          browseName: folderName,
-        });
+
+        // Split the tag's folder value into nested folder levels. "/" and
+        // "\" both work as separators; blank segments are ignored, so
+        // leading/trailing/doubled slashes are tolerated.
+        const folderSegments = String(folderName)
+          .split(/[/\\]/)
+          .map(function (s) {
+            return s.trim();
+          })
+          .filter(function (s) {
+            return s.length > 0;
+          });
+        const fullSegments = prefixSegments.concat(folderSegments);
+        const currentFolder = ensureFolder(fullSegments);
 
         const tagNames = Object.keys(tagsInFolder);
 
         for (let j = 0; j < tagNames.length; j++) {
           const shortTagName = tagNames[j];
-          const fullPath =
-            opts.rootFolderName +
-            "." +
-            opts.functionsFolderName +
-            "." +
-            folderName +
-            "." +
-            shortTagName;
+          // NodeId reflects the full browse path so it stays stable and
+          // unique, e.g. "s=Plant.Line1.Machine1.Speed".
+          const fullPath = fullSegments.concat(shortTagName).join(".");
 
           const rawType = tagsInFolder[shortTagName];
           const opcDataType = validTypes[rawType] || DataType.Double;

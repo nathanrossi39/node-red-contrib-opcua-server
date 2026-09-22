@@ -61,7 +61,7 @@
             $("<input/>", {
               type: "text",
               class: "node-input-tag-folder",
-              placeholder: "Folder (e.g. Machine1)",
+              placeholder: "Folder or path (e.g. Plant/Line1/Machine1)",
               style: "flex:2; min-width:0;",
             })
               .val(data.folder)
@@ -196,12 +196,14 @@
   </div>
 
   <div class="form-tips" style="margin-bottom: 8px;">
-    Add one row per tag below. Tags sharing the same Folder name are grouped
+    Add one row per tag below. Tags sharing the same Folder are grouped
     together automatically - this becomes the OPC UA folder structure your
-    address-space script (via opcua-blueprint-helper.js) reads from. Published
-    to flow context under the Context Key above whenever this node deploys,
-    or whenever it receives an input message (wire an inject node to it if
-    you want to force a refresh without redeploying).
+    address-space script (via opcua-blueprint-helper.js) reads from. A Folder
+    can be a nested path using "/" (e.g. <code>Plant/Line1/Machine1</code>),
+    which builds nested OPC UA folders directly under Objects. Published to
+    flow context under the Context Key above whenever this node deploys, or
+    whenever it receives an input message (wire an inject node to it if you
+    want to force a refresh without redeploying).
   </div>
 
   <div class="form-row">
