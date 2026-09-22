@@ -22,7 +22,8 @@ and HMI clients.
 ## Highlights
 
 - **Programmable address space** - expose whatever tags you want, in
-  whatever folder structure you want, defined as plain data.
+  whatever folder structure you want (including nested folder paths),
+  defined as plain data.
 - **Config-driven Tag Dictionary node** - manage your tags in an editable
   table right in the Node-RED editor (folder, tag name, data type) instead
   of hand-writing code. Includes an "Import from JSON" tool to migrate an
@@ -125,6 +126,34 @@ editor (**menu &rarr; Import**) to see the Tag Dictionary node, live data
 simulation, and quality flagging all working together on
 `opc.tcp://localhost:4841`, with no external infrastructure needed. See
 `examples/opcua-blueprint-setup.md` for a walkthrough.
+
+## Tags and folder structure
+
+Define your tags in the **Tag Dictionary** node - one row per tag, each with
+a **Folder**, **Tag name**, and **Data type**. The dictionary is published to
+Node-RED flow context and turned into the OPC UA address space by the server
+node automatically. The helper that builds the address space ships with the
+package and is loaded for you - there is no file to copy or path to configure.
+
+**Folders can be nested.** A Folder value may be a `/`-separated path, so you
+can lay the address space out however your site needs:
+
+| Folder | Tag | Appears in OPC UA as |
+| --- | --- | --- |
+| `Plant/Line1/Machine1` | `Speed` | `Objects → Plant → Line1 → Machine1 → Speed` |
+| `Plant/Line1/Machine2` | `Temp` | reuses `Plant`/`Line1`, adds `Machine2` |
+| `Boiler` | `Pressure` | `Objects → Boiler → Pressure` |
+
+Tags sit directly under `Objects`, and tags sharing a folder path share the
+same folders. NodeIds follow the path, e.g. `s=Plant.Line1.Machine1.Speed`.
+
+**Reads and writes.** Clients can read and subscribe to every tag. Writes are
+accepted too: a write updates the tag's value *and* is emitted from the server
+node's output as a `WriteRequest` message
+(`{ topic: "WriteRequest", tagName, payload }`), so your flow can forward it on
+to the real device. Whatever feeds the live data remains the source of truth -
+if a data source keeps refreshing a tag, it overrides a written value on its
+next update.
 
 ## Debug
 
