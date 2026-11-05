@@ -33,7 +33,10 @@ and HMI clients.
   tags automatically flip to a *Bad* status (e.g. `BadNoCommunication`)
   so clients can tell live data from stale data, then recover to *Good*
   when data resumes - the same quality-signalling behaviour industrial
-  gateways use to indicate a device or connection is down.
+  gateways use to indicate a device or connection is down. Staleness can
+  be tracked per device, so one device going offline flags only its own
+  tags Bad (see `examples/opcua-ingest-with-heartbeat.js` for an MQTT
+  ingest function that does this).
 - **Configurable limits** - session, connection-per-endpoint, and
   subscription limits are all set per node, so you can size the server
   for real client loads rather than relying on low defaults.

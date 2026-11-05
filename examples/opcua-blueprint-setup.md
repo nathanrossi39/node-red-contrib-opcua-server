@@ -136,22 +136,44 @@ this with OPC UA's built-in quality/status-code mechanism: flagging
 every tag Bad when the underlying device or connection is down, rather
 than showing stale-but-plausible-looking numbers.
 
-This helper supports the same pattern via a heartbeat convention:
+This helper supports the same pattern via a heartbeat convention. Your
+ingest Function node (e.g. the one after your `mqtt in` node) writes a
+timestamp whenever a message arrives - regardless of whether any tag
+value changed, since even a repeated identical reading proves the
+device is still communicating. There are two ways to do it:
 
-1. Replace your MQTT ingest Function node's script with the updated
-   version in `opcua-ingest-with-heartbeat.js` (in this same folder).
-   The only change is one new line,
-   `flow.set("OpcDataLastUpdate", Date.now(), "memoryOnly")`, set
-   whenever a message actually arrives - regardless of whether any tag
-   value changed, since even a repeated identical reading proves the
-   device is still communicating.
+**Per device (recommended).** Write one timestamp per Tag Dictionary
+folder into flow context `OpcDataLastUpdateByFolder`:
 
-2. That's it by default - `staleDataThresholdMs` defaults to 10 seconds.
-   If no heartbeat update lands within that window, every tag on that
-   server node reports `BadNoCommunication` to OPC UA clients instead
-   of `Good`, until the heartbeat resumes.
+```js
+const beats = flow.get("OpcDataLastUpdateByFolder", "memoryOnly") || {};
+beats["Advantech.74FE4890B4B3"] = Date.now(); // the device's Folder
+flow.set("OpcDataLastUpdateByFolder", beats, "memoryOnly");
+```
 
-3. To tune this per node, pass overrides in the bootstrap script's
+Each folder's tags then go Bad on their own when that device goes
+quiet, while every other device stays Good. Once any device has
+reported, a folder that has never sent anything is Bad too. (Before the
+first message of any device arrives, all tags report Good.) `opcua-ingest-with-heartbeat.js`
+(in this same folder) is a complete MQTT ingest function that does this
+for Advantech WISE modules (`Advantech/<MAC>/data`), and also flags a
+device Bad straight away when it sends its `Device_Status` disconnect
+message.
+
+**One heartbeat for everything.** Write a single timestamp instead:
+`flow.set("OpcDataLastUpdate", Date.now(), "memoryOnly")`. Every tag on
+the server node goes Bad together when no update has arrived. This is
+only used when `OpcDataLastUpdateByFolder` is not set.
+
+Then:
+
+1. By default `staleDataThresholdMs` is 10 seconds. If a heartbeat is
+   older than that, the affected tags report `BadNoCommunication` to
+   OPC UA clients instead of `Good`, until the heartbeat resumes. If your
+   devices only publish on change, set their periodic publish interval
+   below this threshold, or raise it.
+
+2. To tune this per node, pass overrides in the bootstrap script's
    options object:
    ```js
    { staleDataThresholdMs: 5000, staleDataStatusCode: "BadDeviceFailure" }
@@ -160,8 +182,7 @@ This helper supports the same pattern via a heartbeat convention:
    enum (e.g. `BadNoCommunication`, `BadDeviceFailure`,
    `BadWaitingForInitialData`).
 
-If you don't add the heartbeat line to your ingest function, this
-feature is simply inactive - tags always report Good, exactly like
-before. Nothing breaks either way; the heartbeat key is checked
-defensively and staleness detection is skipped entirely if it's never
-set.
+If your ingest function writes neither heartbeat, this feature is
+simply inactive - tags always report Good, exactly like before. Nothing
+breaks either way; the heartbeat keys are checked defensively and
+staleness detection is skipped entirely if they're never set.
