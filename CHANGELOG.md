@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.3.0](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.2.0...v2.3.0) (2026-11-05)
+
+
+### Features
+
+* per-device heartbeat so only an offline device's tags go Bad ([#1](https://github.com/nathanrossi39/node-red-contrib-opcua-server/issues/1)) ([b99227f](https://github.com/nathanrossi39/node-red-contrib-opcua-server/commit/b99227f1723ee2064433e1e94bb316383d61bda9))
+
 ## [2.2.0](https://github.com/nathanrossi39/node-red-contrib-opcua-server/compare/v2.1.6...v2.2.0) (2026-09-22)
 
 
