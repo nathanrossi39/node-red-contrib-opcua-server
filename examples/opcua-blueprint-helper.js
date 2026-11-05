@@ -111,6 +111,13 @@
  *   milliseconds (per dataHeartbeatKey), every tag reports a Bad status code instead of Good -
  *   mirroring how Kepware flags tags Bad when the underlying device/connection is down, rather than
  *   silently continuing to show the last known value as if it were current.
+ * @param {string} [options.folderHeartbeatKey="OpcDataLastUpdateByFolder"] - flow context key holding
+ *   an object of per-folder heartbeats, { "<Tag Dictionary Folder>": Date.now(), ... }. When this key
+ *   is set, staleness is judged per folder (per device) instead of globally: a folder whose heartbeat
+ *   is older than staleDataThresholdMs - or that has no heartbeat at all yet - reports Bad, while
+ *   other folders stay Good. (Before the first heartbeat of any folder arrives the key does not
+ *   exist yet, so tags report Good until then.) When it is never set, the single dataHeartbeatKey is used as before.
+ *   See opcua-ingest-with-heartbeat.js for an MQTT ingest function that writes it.
  * @param {string} [options.staleDataStatusCode="BadNoCommunication"] - which node-opcua StatusCodes
  *   name to report when stale (e.g. "BadNoCommunication", "BadDeviceFailure", "BadWaitingForInitialData").
  */
@@ -139,6 +146,13 @@ function buildBlueprintAddressSpace(
       retryDelayMs: 1000,
       startupStaggerMs: 0,
       dataHeartbeatKey: "OpcDataLastUpdate",
+      // Per-device heartbeat: flow context object { "<Folder>": Date.now(), ... }.
+      // When present, each folder's tags go Bad on their own once that folder
+      // has not been updated within staleDataThresholdMs. A folder that has
+      // never been updated also reports Bad, once any folder has reported
+      // (until then the key does not exist and tags report Good).
+      // If this key is never set, the single global heartbeat above is used.
+      folderHeartbeatKey: "OpcDataLastUpdateByFolder",
       staleDataThresholdMs: 10000,
       staleDataStatusCode: "BadNoCommunication",
     },
@@ -256,6 +270,8 @@ function buildBlueprintAddressSpace(
       // context on every single OPC UA read - keeps reads fast under
       // load from many simultaneous client subscriptions.
       let cachedData = {};
+      let staleFolders = null; // Set of stale folder names, or null if the
+      // per-folder heartbeat is not in use
       let isStale = false; // true once no heartbeat update has been seen
       // within staleDataThresholdMs - mirrors Kepware flagging tags Bad
       // when the underlying device/connection is down, rather than
@@ -276,6 +292,28 @@ function buildBlueprintAddressSpace(
         // anyone not using the heartbeat convention.
         if (typeof lastUpdate === "number") {
           isStale = Date.now() - lastUpdate > opts.staleDataThresholdMs;
+        }
+
+        // Per-folder (per-device) staleness.
+        const folderBeats = sandboxFlowContext.get(
+          opts.folderHeartbeatKey,
+          opts.dataContextStore
+        );
+        if (folderBeats && typeof folderBeats === "object") {
+          const now = Date.now();
+          const nextStale = new Set();
+          for (let k = 0; k < folderNames.length; k++) {
+            const ts = folderBeats[folderNames[k]];
+            if (
+              typeof ts !== "number" ||
+              now - ts > opts.staleDataThresholdMs
+            ) {
+              nextStale.add(folderNames[k]);
+            }
+          }
+          staleFolders = nextStale;
+        } else {
+          staleFolders = null;
         }
       }, opts.dataRefreshIntervalMs);
 
@@ -370,7 +408,11 @@ function buildBlueprintAddressSpace(
 
                 return new DataValue({
                   value: variant,
-                  statusCode: isStale ? staleStatusCode : StatusCodes.Good,
+                  statusCode: (
+                    staleFolders ? staleFolders.has(folderName) : isStale
+                  )
+                    ? staleStatusCode
+                    : StatusCodes.Good,
                   sourceTimestamp: new Date(),
                 });
               },
